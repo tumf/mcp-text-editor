@@ -51,7 +51,7 @@ class TextEditor:
 
     async def read_file_contents(
         self, file_path: str, line_start: int = 1, line_end: Optional[int] = None
-    ) -> Tuple[str, int, int, str]:
+    ) -> Tuple[str, int, int, str, int, int]:
         """
         Read file contents within specified line range.
 
@@ -61,7 +61,7 @@ class TextEditor:
             line_end (Optional[int]): Ending line number (inclusive)
 
         Returns:
-            Tuple[str, int, int, str]: (contents, start_line, end_line, hash)
+            Tuple[str, int, int, str, int, int]: (contents, start_line, end_line, hash, file_lines, file_size)
 
         Raises:
             ValueError: If file path or line numbers are invalid
@@ -86,7 +86,14 @@ class TextEditor:
             selected_lines = lines[line_start:line_end]
             content = "".join(selected_lines)
 
-            return content, line_start + 1, line_end, self.calculate_hash(content)
+            return (
+                content,
+                line_start + 1,
+                line_end,
+                self.calculate_hash(content),
+                len(lines),
+                len(content),
+            )
 
         except FileNotFoundError as e:
             raise FileNotFoundError(f"File not found: {file_path}") from e

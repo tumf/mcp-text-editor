@@ -21,8 +21,8 @@ app = Server("mcp-text-editor")
 class GetTextFileContentsHandler:
     """Handler for getting text file contents."""
 
-    name = "GetTextFileContentsForLineEditor"
-    description = "Get the contents and hash of a text file within specified line range"
+    name = "GetTextFileContents"
+    description = "Get the contents and hash of a text file within specified line range for EditTextFileContents"
 
     def __init__(self):
         self.editor = TextEditor()
@@ -61,7 +61,7 @@ class GetTextFileContentsHandler:
             line_start = arguments.get("line_start", 1)
             line_end = arguments.get("line_end")
 
-            content, start, end, content_hash = await self.editor.read_file_contents(
+            content, start, end, content_hash, file_lines, file_size = await self.editor.read_file_contents(
                 file_path, line_start, line_end
             )
 
@@ -70,6 +70,9 @@ class GetTextFileContentsHandler:
                 "line_start": start,
                 "line_end": end,
                 "hash": content_hash,
+                "file_path": file_path,
+                "file_lines": file_lines,
+                "file_size": file_size,
             }
 
             return [TextContent(type="text", text=json.dumps(response, indent=2))]
@@ -82,7 +85,7 @@ class GetTextFileContentsHandler:
 class EditTextFileContentsHandler:
     """Handler for editing text file contents."""
 
-    name = "LineEditTextFileContents"
+    name = "EditTextFileContents"
     description = "Edit text file by lines"
 
     def __init__(self):
