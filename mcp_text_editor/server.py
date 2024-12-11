@@ -21,8 +21,8 @@ app = Server("mcp-text-editor")
 class GetTextFileContentsHandler:
     """Handler for getting text file contents."""
 
-    name = "GetTextFileContents"
-    description = "Get the contents and hash of a text file within specified line range for EditTextFileContents"
+    name = "get_text_file_contents"
+    description = "Read text file contents within a specified line range. Returns file content with a hash for concurrency control and line numbers for reference.The hash is used to detect conflicts when editing the file."
 
     def __init__(self):
         self.editor = TextEditor()
