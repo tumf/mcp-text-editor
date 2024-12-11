@@ -35,12 +35,6 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 uv pip install -e ".[dev]"
 ```
 
-4. Set up pre-commit hooks
-
-```bash
-pre-commit install
-```
-
 ## Installation
 
 ```bash
@@ -109,7 +103,7 @@ Patches are always applied from bottom to top to handle line number shifts corre
 
 ```json
 {
-  "file_path": {
+  "<file path>": {
     "result": "ok",
     "hash": "sha256-hash-of-new-contents"
   }
@@ -120,7 +114,7 @@ For error cases:
 
 ```json
 {
-  "file_path": {
+  "<file path>": {
     "result": "error",
     "reason": "Error message",
     "hash": "current-hash",
