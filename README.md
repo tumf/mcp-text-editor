@@ -10,6 +10,36 @@ A Model Context Protocol (MCP) server that provides text file editing capabiliti
 - Proper handling of concurrent edits with hash-based validation
 - Line-based patch application with correct handling of line number shifts
 - Robust error handling and validation
+- Memory-efficient processing of large files
+
+## Development Environment Setup
+
+1. Install Python 3.11+
+
+```bash
+pyenv install 3.11.6
+pyenv local 3.11.6
+```
+
+2. Install uv (recommended) or pip
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+3. Create virtual environment and install dependencies
+
+```bash
+uv venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+uv pip install -e ".[dev]"
+```
+
+4. Set up pre-commit hooks
+
+```bash
+pre-commit install
+```
 
 ## Installation
 
@@ -18,6 +48,7 @@ pip install -e .
 ```
 
 For development:
+
 ```bash
 pip install -e ".[dev]"
 ```
@@ -25,6 +56,7 @@ pip install -e ".[dev]"
 ## Usage
 
 Start the server:
+
 ```bash
 python -m mcp_text_editor
 ```
@@ -41,6 +73,7 @@ Get the contents of a text file within a specified line range.
 - `line_end`: (optional, default: null) Ending line number
 
 **Returns:**
+
 ```json
 {
   "contents": "File contents",
@@ -56,6 +89,7 @@ Edit text file contents with conflict detection. Can handle multiple files and m
 Patches are always applied from bottom to top to handle line number shifts correctly.
 
 **Parameters:**
+
 ```json
 {
   "file_path": {
@@ -72,6 +106,7 @@ Patches are always applied from bottom to top to handle line number shifts corre
 ```
 
 **Returns:**
+
 ```json
 {
   "file_path": {
@@ -82,6 +117,7 @@ Patches are always applied from bottom to top to handle line number shifts corre
 ```
 
 For error cases:
+
 ```json
 {
   "file_path": {
@@ -103,22 +139,17 @@ The server handles various error cases:
 - Overlapping patches
 - Line number out of bounds
 
-### Security Features
-
-- Path traversal prevention
-- Hash-based concurrency control
-- Input validation
-- Proper error handling and logging
-
 ## Development
 
 ### Setup
+
 1. Clone the repository
 2. Create and activate a Python virtual environment
 3. Install development dependencies: `pip install -e ".[dev]"`
 4. Run tests: `pytest`
 
 ### Code Quality Tools
+
 - Ruff for linting
 - Black for code formatting
 - isort for import sorting
@@ -126,7 +157,9 @@ The server handles various error cases:
 - pytest-cov for test coverage
 
 ### Testing
+
 Tests are located in the `tests` directory and can be run with pytest:
+
 ```bash
 # Run all tests
 pytest
@@ -141,6 +174,7 @@ pytest tests/test_text_editor.py -v
 Current test coverage: 88%
 
 ### Project Structure
+
 ```
 mcp-text-editor/
 ├── mcp_text_editor/
