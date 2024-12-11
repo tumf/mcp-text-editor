@@ -22,7 +22,7 @@ async def test_list_tools():
 
     # Verify GetTextFileContents tool
     get_contents_tool = next(
-        (tool for tool in tools if tool.name == "GetTextFileContents"), None
+        (tool for tool in tools if tool.name == "get_text_file_contents"), None
     )
     assert get_contents_tool is not None
     assert "file" in get_contents_tool.description.lower()
@@ -30,7 +30,7 @@ async def test_list_tools():
 
     # Verify EditTextFileContents tool
     edit_contents_tool = next(
-        (tool for tool in tools if tool.name == "EditTextFileContents"), None
+        (tool for tool in tools if tool.name == "edit_text_file_contents"), None
     )
     assert edit_contents_tool is not None
     assert "edit" in edit_contents_tool.description.lower()
@@ -49,6 +49,8 @@ async def test_get_contents_handler(test_file):
     assert "line_start" in content
     assert "line_end" in content
     assert "hash" in content
+    assert "file_lines" in content
+    assert "file_size" in content
 
 
 @pytest.mark.asyncio
@@ -91,7 +93,7 @@ async def test_edit_contents_handler(test_file):
 async def test_call_tool_get_contents(test_file):
     """Test call_tool with GetTextFileContents."""
     args = {"file_path": test_file, "line_start": 1, "line_end": 3}
-    result = await call_tool("GetTextFileContents", args)
+    result = await call_tool("get_text_file_contents", args)
     assert len(result) == 1
     assert isinstance(result[0], TextContent)
     content = json.loads(result[0].text)
@@ -102,7 +104,7 @@ async def test_call_tool_get_contents(test_file):
 async def test_call_tool_edit_contents(test_file):
     """Test call_tool with EditTextFileContents."""
     # First, get the current content and hash
-    get_result = await call_tool("GetTextFileContents", {"file_path": test_file})
+    get_result = await call_tool("get_text_file_contents", {"file_path": test_file})
     content_info = json.loads(get_result[0].text)
     initial_hash = content_info["hash"]
 
@@ -117,7 +119,7 @@ async def test_call_tool_edit_contents(test_file):
     }
 
     # Apply edit
-    result = await call_tool("EditTextFileContents", edit_args)
+    result = await call_tool("edit_text_file_contents", edit_args)
     assert len(result) == 1
     edit_result = json.loads(result[0].text)
     assert edit_result[test_file]["result"] == "ok"
@@ -136,12 +138,12 @@ async def test_call_tool_error_handling(test_file):
     """Test call_tool error handling."""
     # Test with invalid arguments
     with pytest.raises(RuntimeError) as exc_info:
-        await call_tool("GetTextFileContents", {"invalid": "args"})
+        await call_tool("get_text_file_contents", {"invalid": "args"})
     assert "Missing required argument" in str(exc_info.value)
 
     # Test with invalid file path
     with pytest.raises(RuntimeError) as exc_info:
-        await call_tool("GetTextFileContents", {"file_path": "nonexistent.txt"})
+        await call_tool("get_text_file_contents", {"file_path": "nonexistent.txt"})
     assert "File not found" in str(exc_info.value)
 
 

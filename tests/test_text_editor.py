@@ -26,19 +26,26 @@ async def test_calculate_hash(editor):
 async def test_read_file_contents(editor, test_file):
     """Test reading file contents."""
     # Test reading entire file
-    content, start, end, hash_value = await editor.read_file_contents(test_file)
+    content, start, end, hash_value, total_lines, size = (
+        await editor.read_file_contents(test_file)
+    )
     assert content == "Line 1\nLine 2\nLine 3\nLine 4\nLine 5\n"
     assert start == 1
     assert end == 5
     assert isinstance(hash_value, str)
+    assert total_lines == 5
+    assert size == len(content)
 
     # Test reading specific lines
-    content, start, end, _ = await editor.read_file_contents(
-        test_file, line_start=2, line_end=4
+    content, start, end, hash_value, total_lines, size = (
+        await editor.read_file_contents(test_file, line_start=2, line_end=4)
     )
     assert content == "Line 2\nLine 3\nLine 4\n"
     assert start == 2
     assert end == 4
+    assert isinstance(hash_value, str)
+    assert total_lines == 5  # Total lines in file should remain the same
+    assert size == len(content)  # Size should match the selected content
 
 
 @pytest.mark.asyncio
@@ -52,7 +59,7 @@ async def test_read_file_contents_invalid_file(editor):
 async def test_edit_file_contents(editor, test_file):
     """Test editing file contents."""
     # Read initial content and calculate hash
-    content, _, _, initial_hash = await editor.read_file_contents(test_file)
+    content, _, _, initial_hash, _, _ = await editor.read_file_contents(test_file)
 
     # Create edit operation
     patches = [
@@ -68,7 +75,7 @@ async def test_edit_file_contents(editor, test_file):
     assert result["result"] == "ok"
 
     # Verify changes
-    new_content, _, _, new_hash = await editor.read_file_contents(test_file)
+    new_content, _, _, new_hash, _, _ = await editor.read_file_contents(test_file)
     assert "Modified Line 2" in new_content
     assert result["hash"] == new_hash
 
@@ -95,7 +102,7 @@ async def test_edit_file_contents_conflict(editor, test_file):
 @pytest.mark.asyncio
 async def test_edit_file_contents_overlapping_patches(editor, test_file):
     """Test editing with overlapping patches."""
-    content, _, _, initial_hash = await editor.read_file_contents(test_file)
+    content, _, _, initial_hash, _, _ = await editor.read_file_contents(test_file)
 
     # Create patches with overlap
     patches = [
@@ -126,7 +133,7 @@ async def test_edit_file_contents_multiple_patches(editor, tmp_path):
     test_file.write_text(test_content)
 
     # Read initial content and hash
-    content, _, _, initial_hash = await editor.read_file_contents(str(test_file))
+    content, _, _, initial_hash, _, _ = await editor.read_file_contents(str(test_file))
 
     # Create patches that need to be applied from bottom to top
     patches = [
@@ -193,7 +200,9 @@ async def test_edit_file_contents_multiple_patches_different_orders(editor, tmp_
         test_file.write_text(test_content)
 
         # Read initial content and hash
-        content, _, _, initial_hash = await editor.read_file_contents(str(test_file))
+        content, _, _, initial_hash, _, _ = await editor.read_file_contents(
+            str(test_file)
+        )
 
         # Apply patches
         result = await editor.edit_file_contents(str(test_file), initial_hash, patches)
@@ -217,7 +226,7 @@ async def test_edit_file_contents_complex_multiple_patches(editor, tmp_path):
     test_file.write_text(test_content)
 
     # Read initial content and hash
-    content, _, _, initial_hash = await editor.read_file_contents(str(test_file))
+    content, _, _, initial_hash, _, _ = await editor.read_file_contents(str(test_file))
 
     # Create complex patches
     patches = [
@@ -252,7 +261,7 @@ async def test_edit_file_contents_with_preserving_newlines(editor, tmp_path):
     test_file.write_text(test_content)
 
     # Read initial content and hash
-    content, _, _, initial_hash = await editor.read_file_contents(str(test_file))
+    content, _, _, initial_hash, _, _ = await editor.read_file_contents(str(test_file))
 
     # Create patches that should preserve newlines
     patches = [

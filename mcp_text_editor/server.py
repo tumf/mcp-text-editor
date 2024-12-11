@@ -61,8 +61,8 @@ class GetTextFileContentsHandler:
             line_start = arguments.get("line_start", 1)
             line_end = arguments.get("line_end")
 
-            content, start, end, content_hash, file_lines, file_size = await self.editor.read_file_contents(
-                file_path, line_start, line_end
+            content, start, end, content_hash, file_lines, file_size = (
+                await self.editor.read_file_contents(file_path, line_start, line_end)
             )
 
             response = {
@@ -85,8 +85,8 @@ class GetTextFileContentsHandler:
 class EditTextFileContentsHandler:
     """Handler for editing text file contents."""
 
-    name = "EditTextFileContents"
-    description = "Edit text file by lines"
+    name = "edit_text_file_contents"
+    description = "A line editor that supports editing text file contents by specifying line ranges and content. It handles multiple patches in a single operation with hash-based conflict detection."
 
     def __init__(self):
         self.editor = TextEditor()
