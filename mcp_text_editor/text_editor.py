@@ -1,7 +1,6 @@
 """Core text editor functionality with file operation handling."""
 
 import hashlib
-import os
 from typing import Dict, List, Optional, Tuple
 
 
