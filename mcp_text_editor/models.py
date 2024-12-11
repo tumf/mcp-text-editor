@@ -1,6 +1,6 @@
 """Data models for the MCP Text Editor Server."""
 
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -46,3 +46,37 @@ class EditResult(BaseModel):
         None, description="Current content hash (None for missing files)"
     )
     content: Optional[str] = Field(None, description="Current content if hash error")
+
+    def to_dict(self) -> Dict:
+        """Convert EditResult to a dictionary."""
+        return {
+            "result": self.result,
+            "reason": self.reason,
+            "hash": self.hash,
+            "content": self.content,
+        }
+
+
+class FilePathOperation(BaseModel):
+    """Model for file path operation.
+
+    Example:
+    {
+        "/path/to/file": {
+            "hash": "abc123...",
+            "patches": [...]
+        }
+    }
+    """
+
+    file_operations: Dict[str, EditFileOperation] = Field(
+        ..., description="File path to operation mapping"
+    )
+
+
+class EditTextFileContentsRequest(BaseModel):
+    """Request model for editing text file contents."""
+
+    args: List[FilePathOperation] = Field(
+        ..., description="List of file path operations"
+    )

@@ -73,12 +73,22 @@ async def test_edit_contents_handler(test_file):
 
     # Create edit operation
     edit_args = {
-        test_file: {
-            "hash": initial_hash,
-            "patches": [
-                {"line_start": 2, "line_end": 2, "contents": "Modified Line 2\n"}
-            ],
-        }
+        "args": [
+            {
+                "file_operations": {
+                    test_file: {
+                        "hash": initial_hash,
+                        "patches": [
+                            {
+                                "line_start": 2,
+                                "line_end": 2,
+                                "contents": "Modified Line 2\n",
+                            }
+                        ],
+                    }
+                }
+            }
+        ]
     }
 
     # Apply edit
@@ -110,12 +120,22 @@ async def test_call_tool_edit_contents(test_file):
 
     # Create edit operation
     edit_args = {
-        test_file: {
-            "hash": initial_hash,
-            "patches": [
-                {"line_start": 2, "line_end": 2, "contents": "Modified Line 2\n"}
-            ],
-        }
+        "args": [
+            {
+                "file_operations": {
+                    test_file: {
+                        "hash": initial_hash,
+                        "patches": [
+                            {
+                                "line_start": 2,
+                                "line_end": 2,
+                                "contents": "Modified Line 2\n",
+                            }
+                        ],
+                    }
+                }
+            }
+        ]
     }
 
     # Apply edit
@@ -165,8 +185,9 @@ async def test_edit_contents_handler_multiple_files(tmp_path):
         file_hashes[file_path] = content_info["hash"]
 
     # Create edit operations for multiple files
-    edit_args = {
-        file_path: {
+    file_operations = {}
+    for i, file_path in enumerate(test_files):
+        file_operations[file_path] = {
             "hash": file_hashes[file_path],
             "patches": [
                 {
@@ -176,8 +197,8 @@ async def test_edit_contents_handler_multiple_files(tmp_path):
                 }
             ],
         }
-        for i, file_path in enumerate(test_files)
-    }
+
+    edit_args = {"args": [{"file_operations": file_operations}]}
 
     # Apply edits
     result = await edit_contents_handler.run_tool(edit_args)
@@ -210,16 +231,26 @@ async def test_edit_contents_handler_partial_failure(tmp_path):
 
     # Create edit operations for both valid and invalid files
     edit_args = {
-        valid_path: {
-            "hash": valid_hash,
-            "patches": [
-                {"line_start": 2, "line_end": 2, "contents": "Modified Line 2\n"}
-            ],
-        },
-        str(tmp_path / "nonexistent.txt"): {
-            "hash": "any_hash",
-            "patches": [{"line_start": 1, "contents": "New content\n"}],
-        },
+        "args": [
+            {
+                "file_operations": {
+                    valid_path: {
+                        "hash": valid_hash,
+                        "patches": [
+                            {
+                                "line_start": 2,
+                                "line_end": 2,
+                                "contents": "Modified Line 2\n",
+                            }
+                        ],
+                    },
+                    str(tmp_path / "nonexistent.txt"): {
+                        "hash": "any_hash",
+                        "patches": [{"line_start": 1, "contents": "New content\n"}],
+                    },
+                }
+            }
+        ]
     }
 
     # Apply edits
@@ -238,3 +269,31 @@ async def test_edit_contents_handler_partial_failure(tmp_path):
     assert edit_results[nonexistent_path]["result"] == "error"
     assert "File not found" in edit_results[nonexistent_path]["reason"]
     assert edit_results[nonexistent_path]["hash"] is None
+
+
+@pytest.mark.asyncio
+async def test_edit_contents_handler_empty_args():
+    """Test EditTextFileContents handler with empty args."""
+    with pytest.raises(RuntimeError) as exc_info:
+        await edit_contents_handler.run_tool({"args": []})
+    assert "processing request" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_edit_contents_handler_malformed_input():
+    """Test EditTextFileContents handler with malformed input."""
+    with pytest.raises(RuntimeError) as exc_info:
+        await edit_contents_handler.run_tool({"invalid": "args"})
+    assert "processing request" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_edit_contents_handler_empty_patches():
+    """Test EditTextFileContents handler with empty patches."""
+    edit_args = {
+        "args": [{"file_operations": {"test.txt": {"hash": "any_hash", "patches": []}}}]
+    }
+    result = await edit_contents_handler.run_tool(edit_args)
+    edit_results = json.loads(result[0].text)
+    assert edit_results["test.txt"]["result"] == "error"
+    assert edit_results["test.txt"]["hash"] is None

@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 import traceback
 from collections.abc import Sequence
 from typing import Any, Dict, List
@@ -9,6 +10,7 @@ from typing import Any, Dict, List
 from mcp.server import Server
 from mcp.types import TextContent, Tool
 
+from .models import EditTextFileContentsRequest
 from .text_editor import TextEditor
 
 # Configure logging
@@ -99,64 +101,102 @@ class EditTextFileContentsHandler:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "file_path": {
-                        "type": "object",
-                        "properties": {
-                            "hash": {
-                                "type": "string",
-                                "description": "Hash of original contents",
-                            },
-                            "patches": {
-                                "type": "array",
-                                "items": {
+                    "args": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "file_operations": {
                                     "type": "object",
-                                    "properties": {
-                                        "line_start": {
-                                            "type": "integer",
-                                            "description": "Starting line for edit",
-                                            "default": 1,
+                                    "additionalProperties": {
+                                        "type": "object",
+                                        "properties": {
+                                            "hash": {
+                                                "type": "string",
+                                                "description": "Hash of original contents",
+                                            },
+                                            "patches": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "line_start": {
+                                                            "type": "integer",
+                                                            "description": "Starting line for edit",
+                                                            "default": 1,
+                                                        },
+                                                        "line_end": {
+                                                            "type": ["integer", "null"],
+                                                            "description": "Ending line for edit",
+                                                        },
+                                                        "contents": {
+                                                            "type": "string",
+                                                            "description": "New content to insert",
+                                                        },
+                                                    },
+                                                    "required": ["contents"],
+                                                },
+                                            },
                                         },
-                                        "line_end": {
-                                            "type": ["integer", "null"],
-                                            "description": "Ending line for edit",
-                                        },
-                                        "contents": {
-                                            "type": "string",
-                                            "description": "New content to insert",
-                                        },
+                                        "required": ["hash", "patches"],
                                     },
-                                    "required": ["contents"],
                                 },
                             },
+                            "required": ["file_operations"],
                         },
-                        "required": ["hash", "patches"],
-                    }
+                    },
                 },
-                "required": ["file_path"],
+                "required": ["args"],
             },
         )
 
     async def run_tool(self, arguments: Dict[str, Any]) -> Sequence[TextContent]:
         """Execute the tool with given arguments."""
         try:
-            results = {}
-            for file_path, operation in arguments.items():
-                try:
-                    result = await self.editor.edit_file_contents(
-                        file_path,
-                        operation["hash"],
-                        operation["patches"],
-                    )
-                    results[file_path] = result
-                except Exception as e:
-                    results[file_path] = {
-                        "result": "error",
-                        "reason": str(e),
-                        "hash": None,
-                    }
+            request = EditTextFileContentsRequest(**arguments)
+            results: Dict[str, Dict] = {}
+
+            if not request.args:
+                raise RuntimeError("Empty args list")
+
+            for file_operation in request.args:
+                for file_path, operation in file_operation.file_operations.items():
+                    try:
+                        # Ensure the file exists
+                        if not os.path.exists(file_path):
+                            results[file_path] = {
+                                "result": "error",
+                                "reason": "File not found",
+                                "hash": None,
+                            }
+                            continue
+
+                        # Ensure patches list is not empty
+                        if not operation.patches:
+                            results[file_path] = {
+                                "result": "error",
+                                "reason": "Empty patches list",
+                                "hash": None,
+                            }
+                            continue
+
+                        result = await self.editor.edit_file_contents(
+                            file_path,
+                            operation.hash,
+                            [patch.model_dump() for patch in operation.patches],
+                        )
+                        results[file_path] = result
+                    except Exception as e:
+                        results[file_path] = {
+                            "result": "error",
+                            "reason": str(e),
+                            "hash": None,
+                        }
 
             return [TextContent(type="text", text=json.dumps(results, indent=2))]
         except Exception as e:
+            logger.error(f"Error processing request: {str(e)}")
+            logger.error(traceback.format_exc())
             raise RuntimeError(f"Error processing request: {str(e)}") from e
 
 
