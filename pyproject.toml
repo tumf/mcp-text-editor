@@ -14,7 +14,7 @@ readme = "README.md"
 license = { text = "MIT" }
 
 [project.scripts]
-mcp-text-editor = "mcp_text_editor:main"
+mcp-text-editor = "mcp_text_editor:run"
 
 [project.optional-dependencies]
 test = [
