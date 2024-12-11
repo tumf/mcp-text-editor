@@ -74,9 +74,9 @@ class GetTextFileContentsHandler:
 
             return [TextContent(type="text", text=json.dumps(response, indent=2))]
         except KeyError as e:
-            raise RuntimeError(f"Missing required argument: {e}")
+            raise RuntimeError(f"Missing required argument: {e}") from e
         except Exception as e:
-            raise RuntimeError(f"Error processing request: {str(e)}")
+            raise RuntimeError(f"Error processing request: {str(e)}") from e
 
 
 class EditTextFileContentsHandler:
@@ -154,7 +154,7 @@ class EditTextFileContentsHandler:
 
             return [TextContent(type="text", text=json.dumps(results, indent=2))]
         except Exception as e:
-            raise RuntimeError(f"Error processing request: {str(e)}")
+            raise RuntimeError(f"Error processing request: {str(e)}") from e
 
 
 # Initialize tool handlers

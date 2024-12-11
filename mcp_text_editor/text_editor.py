@@ -1,7 +1,7 @@
 """Core text editor functionality with file operation handling."""
 
 import hashlib
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 
 class TextEditor:
@@ -88,13 +88,13 @@ class TextEditor:
 
             return content, line_start + 1, line_end, self.calculate_hash(content)
 
-        except FileNotFoundError:
-            raise FileNotFoundError(f"File not found: {file_path}")
+        except FileNotFoundError as e:
+            raise FileNotFoundError(f"File not found: {file_path}") from e
         except IOError as e:
-            raise IOError(f"Error reading file: {str(e)}")
+            raise IOError(f"Error reading file: {str(e)}") from e
 
     def _validate_patches(
-        self, patches: List[Dict[str, any]], total_lines: int
+        self, patches: List[Dict[str, Any]], total_lines: int
     ) -> None:
         """
         Validate patches for overlaps and bounds.
@@ -124,8 +124,8 @@ class TextEditor:
             prev_end = end
 
     async def edit_file_contents(
-        self, file_path: str, content_hash: str, patches: List[Dict[str, any]]
-    ) -> Dict[str, any]:
+        self, file_path: str, content_hash: str, patches: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
         """
         Edit file contents with conflict detection.
         Applies patches from bottom to top to handle line number shifts correctly.

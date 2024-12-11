@@ -79,6 +79,7 @@ class TextEditorService:
                         result="error",
                         reason="Invalid patch ranges",
                         hash=current_hash,
+                        content=None,
                     )
                 }
 
@@ -100,6 +101,8 @@ class TextEditorService:
                 file_path: EditResult(
                     result="ok",
                     hash=new_hash,
+                    content=None,
+                    reason=None,
                 )
             }
 
@@ -108,7 +111,8 @@ class TextEditorService:
                 file_path: EditResult(
                     result="error",
                     reason=str(e),
-                    hash=None,  # ファイルが存在しない場合はハッシュはNone
+                    hash=None,
+                    content=None,
                 )
             }
         except Exception as e:
@@ -116,6 +120,7 @@ class TextEditorService:
                 file_path: EditResult(
                     result="error",
                     reason=str(e),
-                    hash=current_hash,  # current_hashはNoneの可能性がある
+                    hash=current_hash,
+                    content=None,
                 )
             }
