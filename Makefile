@@ -15,7 +15,7 @@ lint:
 	ruff check .
 
 typecheck:
-	mypy mcp_shell_server tests
+	mypy mcp_text_editor tests
 
 # Run all checks required before pushing
 check:  lint typecheck test
