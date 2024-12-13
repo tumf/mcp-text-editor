@@ -26,12 +26,6 @@ code ~/Library/Application\ Support/Claude/claude_desktop_config.json
 }
 ```
 
-Key settings for Claude.app:
-- Set appropriate `file_extensions` to limit file access
-- Adjust `max_file_size` based on your needs
-- Configure `max_lines_per_request` to control token usage
-- Use line ranges to minimize token consumption when reading large files
-
 ## Overview
 
 MCP Text Editor Server is designed to facilitate safe and efficient line-based text file operations in a client-server architecture. It implements the Model Context Protocol, ensuring reliable file editing with robust conflict detection and resolution. The line-oriented approach makes it ideal for applications requiring synchronized file access, such as collaborative editing tools, automated text processing systems, or any scenario where multiple processes need to modify text files safely. The partial file access capability is particularly valuable for LLM-based tools, as it helps reduce token consumption by loading only the necessary portions of files.
