@@ -7,6 +7,7 @@ from mcp_text_editor.models import (
     EditFileOperation,
     EditPatch,
     EditResult,
+    EditTextFileContentsRequest,
     GetTextFileContentsRequest,
     GetTextFileContentsResponse,
 )
@@ -73,7 +74,10 @@ def test_edit_file_operation():
         EditPatch(contents="content1"),
         EditPatch(line_start=2, line_end=3, contents="content2"),
     ]
-    operation = EditFileOperation(hash="hash123", patches=patches)
+    operation = EditFileOperation(
+        path="/path/to/file.txt", hash="hash123", patches=patches
+    )
+    assert operation.path == "/path/to/file.txt"
     assert operation.hash == "hash123"
     assert len(operation.patches) == 2
     assert operation.patches[0].contents == "content1"
@@ -85,7 +89,7 @@ def test_edit_file_operation():
 
     # Test validation error - invalid patches type
     with pytest.raises(ValidationError):
-        EditFileOperation(hash="hash123", patches="invalid")
+        EditFileOperation(path="/path/to/file.txt", hash="hash123", patches="invalid")
 
 
 def test_edit_result():
@@ -112,3 +116,45 @@ def test_edit_result():
     # Test validation error - missing required fields
     with pytest.raises(ValidationError):
         EditResult()
+
+
+def test_edit_text_file_contents_request():
+    """Test EditTextFileContentsRequest model."""
+    # Test with single file operation
+    request = EditTextFileContentsRequest(
+        files=[
+            EditFileOperation(
+                path="/path/to/file.txt",
+                hash="hash123",
+                patches=[EditPatch(contents="new content")],
+            )
+        ]
+    )
+    assert len(request.files) == 1
+    assert request.files[0].path == "/path/to/file.txt"
+    assert request.files[0].hash == "hash123"
+    assert len(request.files[0].patches) == 1
+    assert request.files[0].patches[0].contents == "new content"
+
+    # Test with multiple file operations
+    request = EditTextFileContentsRequest(
+        files=[
+            EditFileOperation(
+                path="/path/to/file1.txt",
+                hash="hash123",
+                patches=[EditPatch(contents="content1")],
+            ),
+            EditFileOperation(
+                path="/path/to/file2.txt",
+                hash="hash456",
+                patches=[EditPatch(line_start=2, contents="content2")],
+            ),
+        ]
+    )
+    assert len(request.files) == 2
+    assert request.files[0].path == "/path/to/file1.txt"
+    assert request.files[1].path == "/path/to/file2.txt"
+
+    # Test validation error - missing required field
+    with pytest.raises(ValidationError):
+        EditTextFileContentsRequest()

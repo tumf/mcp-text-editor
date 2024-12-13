@@ -31,8 +31,9 @@ class EditPatch(BaseModel):
 
 
 class EditFileOperation(BaseModel):
-    """Model for file edit operation."""
+    """Model for individual file edit operation."""
 
+    path: str = Field(..., description="Path to the file")
     hash: str = Field(..., description="Hash of original contents")
     patches: List[EditPatch] = Field(..., description="Edit operations to apply")
 
@@ -57,26 +58,25 @@ class EditResult(BaseModel):
         }
 
 
-class FilePathOperation(BaseModel):
-    """Model for file path operation.
+class EditTextFileContentsRequest(BaseModel):
+    """Request model for editing text file contents.
 
     Example:
     {
-        "/path/to/file": {
-            "hash": "abc123...",
-            "patches": [...]
-        }
+        "files": [
+            {
+                "path": "/path/to/file",
+                "hash": "abc123...",
+                "patches": [
+                    {
+                        "line_start": 1,  # default: 1 (top of file)
+                        "line_end": null,  # default: null (end of file)
+                        "contents": "new content"
+                    }
+                ]
+            }
+        ]
     }
     """
 
-    file_operations: Dict[str, EditFileOperation] = Field(
-        ..., description="File path to operation mapping"
-    )
-
-
-class EditTextFileContentsRequest(BaseModel):
-    """Request model for editing text file contents."""
-
-    args: List[FilePathOperation] = Field(
-        ..., description="List of file path operations"
-    )
+    files: List[EditFileOperation] = Field(..., description="List of file operations")

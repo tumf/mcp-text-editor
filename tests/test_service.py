@@ -72,20 +72,22 @@ def test_edit_file_contents(service, tmp_path):
     test_file = tmp_path / "edit_test.txt"
     test_content = "line1\nline2\nline3\n"
     test_file.write_text(test_content)
+    file_path = str(test_file)
 
     # Calculate initial hash
     initial_hash = service.calculate_hash(test_content)
 
     # Create edit operation
     operation = EditFileOperation(
+        path=file_path,
         hash=initial_hash,
         patches=[EditPatch(line_start=2, line_end=2, contents="new line2")],
     )
 
     # Apply edit
-    result = service.edit_file_contents(str(test_file), operation)
-    assert str(test_file) in result
-    edit_result = result[str(test_file)]
+    result = service.edit_file_contents(file_path, operation)
+    assert file_path in result
+    edit_result = result[file_path]
     assert isinstance(edit_result, EditResult)
     assert edit_result.result == "ok"
 
@@ -100,17 +102,19 @@ def test_edit_file_contents_hash_mismatch(service, tmp_path):
     test_file = tmp_path / "hash_mismatch_test.txt"
     test_content = "line1\nline2\nline3\n"
     test_file.write_text(test_content)
+    file_path = str(test_file)
 
     # Create edit operation with incorrect hash
     operation = EditFileOperation(
+        path=file_path,
         hash="incorrect_hash",
         patches=[EditPatch(line_start=2, line_end=2, contents="new line2")],
     )
 
     # Attempt edit
-    result = service.edit_file_contents(str(test_file), operation)
-    assert str(test_file) in result
-    edit_result = result[str(test_file)]
+    result = service.edit_file_contents(file_path, operation)
+    assert file_path in result
+    edit_result = result[file_path]
     assert edit_result.result == "error"
     assert "hash mismatch" in edit_result.reason.lower()
     assert edit_result.content == test_content
@@ -122,12 +126,14 @@ def test_edit_file_contents_invalid_patches(service, tmp_path):
     test_file = tmp_path / "invalid_patches_test.txt"
     test_content = "line1\nline2\nline3\n"
     test_file.write_text(test_content)
+    file_path = str(test_file)
 
     # Calculate initial hash
     initial_hash = service.calculate_hash(test_content)
 
     # Create edit operation with invalid patches
     operation = EditFileOperation(
+        path=file_path,
         hash=initial_hash,
         patches=[
             EditPatch(
@@ -137,23 +143,24 @@ def test_edit_file_contents_invalid_patches(service, tmp_path):
     )
 
     # Attempt edit
-    result = service.edit_file_contents(str(test_file), operation)
-    assert str(test_file) in result
-    edit_result = result[str(test_file)]
+    result = service.edit_file_contents(file_path, operation)
+    assert file_path in result
+    edit_result = result[file_path]
     assert edit_result.result == "error"
     assert "invalid patch" in edit_result.reason.lower()
 
 
 def test_edit_file_contents_file_error(service):
     """Test editing with file error."""
+    file_path = "nonexistent.txt"
     # Attempt to edit non-existent file
     operation = EditFileOperation(
-        hash="any_hash", patches=[EditPatch(contents="new content")]
+        path=file_path, hash="any_hash", patches=[EditPatch(contents="new content")]
     )
 
     # Attempt edit
-    result = service.edit_file_contents("nonexistent.txt", operation)
-    assert "nonexistent.txt" in result
-    edit_result = result["nonexistent.txt"]
+    result = service.edit_file_contents(file_path, operation)
+    assert file_path in result
+    edit_result = result[file_path]
     assert edit_result.result == "error"
     assert "no such file" in edit_result.reason.lower()
