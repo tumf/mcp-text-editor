@@ -11,6 +11,7 @@ from mcp.server import Server
 from mcp.types import TextContent, Tool
 
 from .text_editor import TextEditor
+from .version import __version__
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -273,7 +274,7 @@ async def call_tool(name: str, arguments: Any) -> Sequence[TextContent]:
 
 async def main() -> None:
     """Main entry point for the MCP text editor server."""
-    logger.info("Starting MCP text editor server")
+    logger.info(f"Starting MCP text editor server v{__version__}")
     try:
         from mcp.server.stdio import stdio_server
 
