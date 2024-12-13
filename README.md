@@ -2,31 +2,60 @@
 
 [![codecov](https://codecov.io/gh/tumf/mcp-text-editor/graph/badge.svg?token=52D51U0ZUR)](https://codecov.io/gh/tumf/mcp-text-editor)
 
-A Model Context Protocol (MCP) server that provides text file editing capabilities through a standardized API.
+A Model Context Protocol (MCP) server that provides line-oriented text file editing capabilities through a standardized API. Optimized for LLM tools with efficient partial file access to minimize token usage.
+
+## Quick Start for Claude.app Users
+
+To use this editor with Claude.app, add the following configuration to your prompt:
+
+```shell
+code ~/Library/Application\ Support/Claude/claude_desktop_config.json
+```
+
+```json
+{
+  "mcpServers": {
+
+    "text-editor": {
+      "command": "uvx",
+      "args": [
+        "mcp-text-editor"
+      ]
+    }, 
+  }
+}
+```
+
+Key settings for Claude.app:
+- Set appropriate `file_extensions` to limit file access
+- Adjust `max_file_size` based on your needs
+- Configure `max_lines_per_request` to control token usage
+- Use line ranges to minimize token consumption when reading large files
 
 ## Overview
 
-MCP Text Editor Server is designed to facilitate safe and efficient text file operations in a client-server architecture. It implements the Model Context Protocol, ensuring reliable file editing with robust conflict detection and resolution. This makes it ideal for applications requiring synchronized file access, such as collaborative editing tools, automated text processing systems, or any scenario where multiple processes need to modify text files safely.
+MCP Text Editor Server is designed to facilitate safe and efficient line-based text file operations in a client-server architecture. It implements the Model Context Protocol, ensuring reliable file editing with robust conflict detection and resolution. The line-oriented approach makes it ideal for applications requiring synchronized file access, such as collaborative editing tools, automated text processing systems, or any scenario where multiple processes need to modify text files safely. The partial file access capability is particularly valuable for LLM-based tools, as it helps reduce token consumption by loading only the necessary portions of files.
 
 ### Key Benefits
 
+- Line-based editing operations
+- Token-efficient partial file access with line-range specifications
+- Optimized for LLM tool integration
 - Safe concurrent editing with hash-based validation
-- Efficient partial file access with line-range specifications
 - Atomic multi-file operations
 - Robust error handling and recovery mechanisms
 
-
 ## Features
 
+- Line-oriented text file editing and reading
+- Smart partial file access to minimize token usage in LLM applications
 - Get text file contents with line range specification
 - Read multiple ranges from multiple files in a single operation
+- Line-based patch application with correct handling of line number shifts
 - Edit text file contents with conflict detection
 - Support for multiple file operations
 - Proper handling of concurrent edits with hash-based validation
-- Line-based patch application with correct handling of line number shifts
-- Robust error handling and validation
 - Memory-efficient processing of large files
-
 
 ## Requirements
 
@@ -34,7 +63,6 @@ MCP Text Editor Server is designed to facilitate safe and efficient text file op
 - POSIX-compliant operating system (Linux, macOS, etc.) or Windows
 - Sufficient disk space for text file operations
 - File system permissions for read/write operations
-
 
 1. Install Python 3.11+
 
