@@ -78,3 +78,23 @@ mypy_path = "src"
 
 [tool.hatch.version]
 path = "src/mcp_text_editor/version.py"
+
+[tool.coverage.run]
+source = ["mcp_text_editor"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass",
+    "raise ImportError",
+    "__version__",
+]
+
+omit = [
+    "src/mcp_text_editor/__init__.py",
+    "src/mcp_text_editor/version.py",
+]

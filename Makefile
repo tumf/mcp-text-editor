@@ -1,8 +1,11 @@
-.PHONY: test format lint typecheck check
+.PHONY: test format lint typecheck check coverage
 .DEFAULT_GOAL := all
 
 test:
 	pytest
+
+coverage:
+	pytest --cov=mcp_text_editor --cov-report=term-missing
 
 format:
 	black src tests
