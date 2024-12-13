@@ -341,3 +341,35 @@ async def test_read_multiple_ranges_out_of_bounds_start(editor, test_file):
     assert second_range["end_line"] == 6
     assert second_range["total_lines"] == 5
     assert second_range["content_size"] == 0
+
+
+@pytest.mark.asyncio
+async def test_read_multiple_ranges_out_of_bounds_end(editor, test_file):
+    """Test reading ranges where end line exceeds file length."""
+    ranges = [
+        {
+            "file_path": test_file,
+            "ranges": [
+                {"start": 1, "end": 1000},  # End way beyond file end
+                {"start": 2, "end": 6},  # End just beyond file end
+            ],
+        }
+    ]
+
+    result = await editor.read_multiple_ranges(ranges)
+
+    # Check first range (end line way beyond file end)
+    first_range = result[test_file][0]
+    assert first_range["content"] == "Line 1\nLine 2\nLine 3\nLine 4\nLine 5\n"
+    assert first_range["start_line"] == 1
+    assert first_range["end_line"] == 5
+    assert first_range["total_lines"] == 5
+    assert first_range["content_size"] == len(first_range["content"])
+
+    # Check second range (end line just beyond file end)
+    second_range = result[test_file][1]
+    assert second_range["content"] == "Line 2\nLine 3\nLine 4\nLine 5\n"
+    assert second_range["start_line"] == 2
+    assert second_range["end_line"] == 5
+    assert second_range["total_lines"] == 5
+    assert second_range["content_size"] == len(second_range["content"])

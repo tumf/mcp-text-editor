@@ -100,11 +100,15 @@ class TextEditor:
                     total_lines = len(lines)
                     file_content = "".join(lines)
                     file_hash = self.calculate_hash(file_content)
-
                 for range_spec in file_range["ranges"]:
                     # Adjust line numbers to 0-based index
                     line_start = max(1, range_spec["start"]) - 1
                     end_value = range_spec.get("end")
+                    line_end = (
+                        min(total_lines, end_value)
+                        if end_value is not None
+                        else total_lines
+                    )
                     line_end = (
                         total_lines
                         if end_value is None
