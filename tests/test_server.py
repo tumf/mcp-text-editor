@@ -4,13 +4,17 @@ import json
 from typing import List
 
 import pytest
+from mcp.server import stdio
 from mcp.types import TextContent, Tool
+from pytest_mock import MockerFixture
 
 from mcp_text_editor.server import (
+    app,
     call_tool,
     edit_contents_handler,
     get_contents_handler,
     list_tools,
+    main,
 )
 
 
@@ -335,3 +339,33 @@ async def test_edit_contents_handler_missing_hash(tmp_path):
     edit_results = json.loads(result[0].text)
     assert edit_results[str(test_file)]["result"] == "error"
     assert "Missing required field: hash" in edit_results[str(test_file)]["reason"]
+
+
+@pytest.mark.asyncio
+async def test_main_stdio_server_error(mocker: MockerFixture):
+    """Test main function with stdio_server error."""
+    # Mock the stdio_server to raise an exception
+    mock_stdio = mocker.patch.object(stdio, "stdio_server")
+    mock_stdio.side_effect = Exception("Stdio server error")
+
+    with pytest.raises(Exception) as exc_info:
+        await main()
+    assert "Stdio server error" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_main_run_error(mocker: MockerFixture):
+    """Test main function with app.run error."""
+    # Mock the stdio_server context manager
+    mock_stdio = mocker.patch.object(stdio, "stdio_server")
+    mock_context = mocker.MagicMock()
+    mock_context.__aenter__.return_value = (mocker.MagicMock(), mocker.MagicMock())
+    mock_stdio.return_value = mock_context
+
+    # Mock app.run to raise an exception
+    mock_run = mocker.patch.object(app, "run")
+    mock_run.side_effect = Exception("App run error")
+
+    with pytest.raises(Exception) as exc_info:
+        await main()
+    assert "App run error" in str(exc_info.value)
