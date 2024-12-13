@@ -288,3 +288,50 @@ async def test_edit_contents_handler_empty_patches():
     edit_results = json.loads(result[0].text)
     assert edit_results["test.txt"]["result"] == "error"
     assert edit_results["test.txt"]["hash"] is None
+
+
+@pytest.mark.asyncio
+async def test_get_contents_handler_legacy_missing_args():
+    """Test GetTextFileContents handler with legacy single file request missing arguments."""
+    with pytest.raises(RuntimeError) as exc_info:
+        await get_contents_handler.run_tool({})
+    assert "Missing required argument: files" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_edit_contents_handler_missing_path():
+    """Test EditTextFileContents handler with missing path in file operation."""
+    edit_args = {
+        "files": [
+            {
+                "hash": "any_hash",
+                "patches": [{"contents": "New content\n"}],
+            }
+        ]
+    }
+
+    with pytest.raises(RuntimeError) as exc_info:
+        await edit_contents_handler.run_tool(edit_args)
+    assert "Missing required field: path" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_edit_contents_handler_missing_hash(tmp_path):
+    """Test EditTextFileContents handler with missing hash in file operation."""
+    # Create a test file
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("test content")
+
+    edit_args = {
+        "files": [
+            {
+                "path": str(test_file),
+                "patches": [{"contents": "New content\n"}],
+            }
+        ]
+    }
+
+    result = await edit_contents_handler.run_tool(edit_args)
+    edit_results = json.loads(result[0].text)
+    assert edit_results[str(test_file)]["result"] == "error"
+    assert "Missing required field: hash" in edit_results[str(test_file)]["reason"]
