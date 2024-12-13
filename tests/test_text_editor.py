@@ -280,3 +280,33 @@ async def test_edit_file_contents_with_preserving_newlines(editor, tmp_path):
     expected_content = "line1\nnew line2\nline3\n"
     final_content = test_file.read_text()
     assert final_content == expected_content
+
+
+@pytest.mark.asyncio
+async def test_read_multiple_ranges(editor, test_file):
+    """Test reading multiple ranges including ranges with no end specified."""
+    ranges = [
+        {
+            "file_path": test_file,
+            "ranges": [
+                {"start": 1},  # Read from start to end (no end specified)
+                {"start": 2, "end": 4},  # Read specific range
+            ],
+        }
+    ]
+
+    result = await editor.read_multiple_ranges(ranges)
+
+    # Check first range (entire file)
+    first_range = result[test_file][0]
+    assert first_range["content"] == "Line 1\nLine 2\nLine 3\nLine 4\nLine 5\n"
+    assert first_range["start_line"] == 1
+    assert first_range["end_line"] == 5
+    assert first_range["total_lines"] == 5
+
+    # Check second range (specific lines)
+    second_range = result[test_file][1]
+    assert second_range["content"] == "Line 2\nLine 3\nLine 4\n"
+    assert second_range["start_line"] == 2
+    assert second_range["end_line"] == 4
+    assert second_range["total_lines"] == 5
