@@ -1,6 +1,6 @@
 [project]
 name = "mcp-text-editor"
-version = "0.1.0"
+dynamic = ["version"]
 description = "MCP Text Editor Server - Edit text files via MCP protocol"
 authors = [
     { name = "tumf" }
@@ -74,4 +74,7 @@ explicit_package_bases = true
 mypy_path = "src"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/mcp_text_editor"]
+
+
+[tool.hatch.version]
+path = "src/mcp_text_editor/version.py"
