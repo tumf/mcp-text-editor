@@ -5,6 +5,7 @@ A Model Context Protocol (MCP) server that provides text file editing capabiliti
 ## Features
 
 - Get text file contents with line range specification
+- Read multiple ranges from multiple files in a single operation
 - Edit text file contents with conflict detection
 - Support for multiple file operations
 - Proper handling of concurrent edits with hash-based validation
@@ -55,72 +56,219 @@ Start the server:
 python -m mcp_text_editor
 ```
 
-### API Endpoints
+### MCP Tools
 
-#### GetTextFileContents
+The server provides two main tools:
 
-Get the contents of a text file within a specified line range.
+#### get_text_file_contents
 
-**Parameters:**
-- `file_path`: (required) Path to the text file
-- `line_start`: (optional, default: 1) Starting line number
-- `line_end`: (optional, default: null) Ending line number
+Get the contents of one or more text files with line range specification.
 
-**Returns:**
+**Single Range Request:**
+
+```json
+{
+  "file_path": "path/to/file.txt",
+  "line_start": 1,
+  "line_end": 10
+}
+```
+
+**Multiple Ranges Request:**
+
+```json
+{
+  "files": [
+    {
+      "file_path": "file1.txt",
+      "ranges": [
+        {"start": 1, "end": 10},
+        {"start": 20, "end": 30}
+      ]
+    },
+    {
+      "file_path": "file2.txt",
+      "ranges": [
+        {"start": 5, "end": 15}
+      ]
+    }
+  ]
+}
+```
+
+Parameters:
+- `file_path`: Path to the text file
+- `line_start`/`start`: Line number to start from (1-based)
+- `line_end`/`end`: Line number to end at (inclusive, null for end of file)
+
+**Single Range Response:**
 
 ```json
 {
   "contents": "File contents",
   "line_start": 1,
-  "line_end": 5,
-  "hash": "sha256-hash-of-contents"
+  "line_end": 10,
+  "hash": "sha256-hash-of-contents",
+  "file_lines": 50,
+  "file_size": 1024
 }
 ```
 
-#### EditTextFileContents
-
-Edit text file contents with conflict detection. Can handle multiple files and multiple patches per file.
-Patches are always applied from bottom to top to handle line number shifts correctly.
-
-**Parameters:**
+**Multiple Ranges Response:**
 
 ```json
 {
-  "file_path": {
-    "hash": "sha256-hash-of-original-contents",
-    "patches": [
-      {
-        "line_start": 1,
-        "line_end": null,
-        "contents": "New content"
-      }
-    ]
-  }
+  "file1.txt": [
+    {
+      "content": "Lines 1-10 content",
+      "start_line": 1,
+      "end_line": 10,
+      "hash": "sha256-hash-1",
+      "total_lines": 50,
+      "content_size": 512
+    },
+    {
+      "content": "Lines 20-30 content",
+      "start_line": 20,
+      "end_line": 30,
+      "hash": "sha256-hash-2",
+      "total_lines": 50,
+      "content_size": 512
+    }
+  ],
+  "file2.txt": [
+    {
+      "content": "Lines 5-15 content",
+      "start_line": 5,
+      "end_line": 15,
+      "hash": "sha256-hash-3",
+      "total_lines": 30,
+      "content_size": 256
+    }
+  ]
 }
 ```
 
-**Returns:**
+#### edit_text_file_contents
+
+Edit text file contents with conflict detection. Supports editing multiple files in a single operation.
+
+**Request Format:**
 
 ```json
 {
-  "<file path>": {
+  "files": [
+    {
+      "path": "file1.txt",
+      "hash": "sha256-hash-from-get-contents",
+      "patches": [
+        {
+          "line_start": 5,
+          "line_end": 8,
+          "contents": "New content for lines 5-8\n"
+        },
+        {
+          "line_start": 15,
+          "line_end": 15,
+          "contents": "Single line replacement\n"
+        }
+      ]
+    },
+    {
+      "path": "file2.txt",
+      "hash": "sha256-hash-from-get-contents",
+      "patches": [
+        {
+          "line_start": 1,
+          "line_end": 3,
+          "contents": "Replace first three lines\n"
+        }
+      ]
+    }
+  ]
+}
+```
+
+Important Notes:
+1. Always get the current hash using get_text_file_contents before editing
+2. Patches are applied from bottom to top to handle line number shifts correctly
+3. Patches must not overlap within the same file
+4. Line numbers are 1-based
+5. If original content ends with newline, ensure patch content also ends with newline
+
+**Success Response:**
+
+```json
+{
+  "file1.txt": {
+    "result": "ok",
+    "hash": "sha256-hash-of-new-contents"
+  },
+  "file2.txt": {
     "result": "ok",
     "hash": "sha256-hash-of-new-contents"
   }
 }
 ```
 
-For error cases:
+**Error Response:**
 
 ```json
 {
-  "<file path>": {
+  "file1.txt": {
     "result": "error",
-    "reason": "Error message",
+    "reason": "File not found",
+    "hash": null
+  },
+  "file2.txt": {
+    "result": "error",
+    "reason": "Content hash mismatch - file was modified",
     "hash": "current-hash",
-    "content": "Current content (if hash mismatch)"
+    "content": "Current file content"
   }
 }
+```
+
+### Common Usage Pattern
+
+1. Get current content and hash:
+```python
+contents = await get_text_file_contents({
+    "files": [
+        {
+            "file_path": "file.txt",
+            "ranges": [{"start": 1, "end": null}]  # Read entire file
+        }
+    ]
+})
+```
+
+2. Edit file content:
+```python
+result = await edit_text_file_contents({
+    "files": [
+        {
+            "path": "file.txt",
+            "hash": contents["file.txt"][0]["hash"],
+            "patches": [
+                {
+                    "line_start": 5,
+                    "line_end": 8,
+                    "contents": "New content\n"
+                }
+            ]
+        }
+    ]
+})
+```
+
+3. Handle conflicts:
+```python
+if result["file.txt"]["result"] == "error":
+    if "hash mismatch" in result["file.txt"]["reason"]:
+        # File was modified by another process
+        # Get new content and retry
+        pass
 ```
 
 ### Error Handling
@@ -165,7 +313,7 @@ pytest --cov=mcp_text_editor --cov-report=term-missing
 pytest tests/test_text_editor.py -v
 ```
 
-Current test coverage: 88%
+Current test coverage: 90%
 
 ### Project Structure
 

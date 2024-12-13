@@ -1,7 +1,21 @@
 """Core text editor functionality with file operation handling."""
 
 import hashlib
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, TypedDict
+
+
+class Range(TypedDict):
+    """Represents a line range in a file."""
+
+    start: int
+    end: Optional[int]
+
+
+class FileRanges(TypedDict):
+    """Represents a file and its line ranges."""
+
+    file_path: str
+    ranges: List[Range]
 
 
 class TextEditor:
@@ -48,6 +62,81 @@ class TextEditor:
             str: Hex digest of SHA-256 hash
         """
         return hashlib.sha256(content.encode()).hexdigest()
+
+    async def read_multiple_ranges(
+        self, ranges: List[FileRanges]
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Read multiple line ranges from multiple files.
+
+        Args:
+            ranges (List[FileRanges]): List of files and their line ranges to read
+
+        Returns:
+            Dict[str, List[Dict[str, Any]]]: Dictionary with file paths as keys and
+                lists of range contents as values. Each range content includes:
+                - content: str
+                - start_line: int
+                - end_line: int
+                - hash: str
+                - total_lines: int
+                - content_size: int
+
+        Raises:
+            ValueError: If file paths or line numbers are invalid
+            FileNotFoundError: If any file does not exist
+            IOError: If any file cannot be read
+        """
+        result: Dict[str, List[Dict[str, Any]]] = {}
+
+        for file_range in ranges:
+            file_path = file_range["file_path"]
+            self._validate_file_path(file_path)
+            result[file_path] = []
+
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    lines = f.readlines()
+                    total_lines = len(lines)
+
+                for range_spec in file_range["ranges"]:
+                    # Adjust line numbers to 0-based index
+                    line_start = max(1, range_spec["start"]) - 1
+                    line_end = (
+                        total_lines
+                        if range_spec["end"] is None
+                        else min(range_spec["end"], total_lines)
+                    )
+
+                    if line_start >= total_lines:
+                        raise ValueError(
+                            f"Start line {line_start + 1} exceeds file length {total_lines}"
+                        )
+                    if line_end < line_start:
+                        raise ValueError(
+                            "End line must be greater than or equal to start line"
+                        )
+
+                    selected_lines = lines[line_start:line_end]
+                    content = "".join(selected_lines)
+
+                    result[file_path].append(
+                        {
+                            "content": content,
+                            "start_line": line_start + 1,
+                            "end_line": line_end,
+                            "hash": self.calculate_hash(content),
+                            "total_lines": total_lines,
+                            "content_size": len(content),
+                        }
+                    )
+
+            except FileNotFoundError as e:
+                raise FileNotFoundError(f"File not found: {file_path}") from e
+            except IOError as e:
+                raise IOError(f"Error reading file: {str(e)}") from e
+
+        return result
 
     async def read_file_contents(
         self, file_path: str, line_start: int = 1, line_end: Optional[int] = None
@@ -213,7 +302,7 @@ class TextEditor:
             return {
                 "result": "error",
                 "reason": f"File not found: {file_path}",
-                "hash": None,  # ファイルが存在しない場合はハッシュも提供できない
+                "hash": None,
             }
         except (IOError, Exception) as e:
             return {

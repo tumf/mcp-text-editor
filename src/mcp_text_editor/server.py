@@ -23,7 +23,7 @@ class GetTextFileContentsHandler:
     """Handler for getting text file contents."""
 
     name = "get_text_file_contents"
-    description = "Read text file contents within a specified line range. Returns file content with a hash for concurrency control and line numbers for reference.The hash is used to detect conflicts when editing the file."
+    description = "Read text file contents from multiple files and line ranges. Returns file contents with hashes for concurrency control and line numbers for reference. The hashes are used to detect conflicts when editing the files."
 
     def __init__(self):
         self.editor = TextEditor()
@@ -36,47 +36,79 @@ class GetTextFileContentsHandler:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "file_path": {
-                        "type": "string",
-                        "description": "Path to the text file",
-                    },
-                    "line_start": {
-                        "type": "integer",
-                        "description": "Starting line number (1-based)",
-                        "default": 1,
-                    },
-                    "line_end": {
-                        "type": ["integer", "null"],
-                        "description": "Ending line number (null for end of file)",
-                        "default": None,
-                    },
+                    "files": {
+                        "type": "array",
+                        "description": "List of files and their line ranges to read",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "file_path": {
+                                    "type": "string",
+                                    "description": "Path to the text file",
+                                },
+                                "ranges": {
+                                    "type": "array",
+                                    "description": "List of line ranges to read from the file",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "start": {
+                                                "type": "integer",
+                                                "description": "Starting line number (1-based)",
+                                            },
+                                            "end": {
+                                                "type": ["integer", "null"],
+                                                "description": "Ending line number (null for end of file)",
+                                            },
+                                        },
+                                        "required": ["start"],
+                                    },
+                                },
+                            },
+                            "required": ["file_path", "ranges"],
+                        },
+                    }
                 },
-                "required": ["file_path"],
+                "required": ["files"],
             },
         )
 
     async def run_tool(self, arguments: Dict[str, Any]) -> Sequence[TextContent]:
         """Execute the tool with given arguments."""
         try:
-            file_path = arguments["file_path"]
-            line_start = arguments.get("line_start", 1)
-            line_end = arguments.get("line_end")
+            if "files" not in arguments:
+                # Handle legacy single file request
+                if "file_path" in arguments:
+                    file_path = arguments["file_path"]
+                    line_start = arguments.get("line_start", 1)
+                    line_end = arguments.get("line_end")
 
-            content, start, end, content_hash, file_lines, file_size = (
-                await self.editor.read_file_contents(file_path, line_start, line_end)
-            )
+                    content, start, end, content_hash, file_lines, file_size = (
+                        await self.editor.read_file_contents(
+                            file_path, line_start, line_end
+                        )
+                    )
 
-            response = {
-                "contents": content,
-                "line_start": start,
-                "line_end": end,
-                "hash": content_hash,
-                "file_path": file_path,
-                "file_lines": file_lines,
-                "file_size": file_size,
-            }
+                    response = {
+                        "contents": content,
+                        "line_start": start,
+                        "line_end": end,
+                        "hash": content_hash,
+                        "file_path": file_path,
+                        "file_lines": file_lines,
+                        "file_size": file_size,
+                    }
 
-            return [TextContent(type="text", text=json.dumps(response, indent=2))]
+                    return [
+                        TextContent(type="text", text=json.dumps(response, indent=2))
+                    ]
+                else:
+                    raise RuntimeError("Missing required argument: files")
+
+            # Handle multi-file request
+            result = await self.editor.read_multiple_ranges(arguments["files"])
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
         except KeyError as e:
             raise RuntimeError(f"Missing required argument: {e}") from e
         except Exception as e:
