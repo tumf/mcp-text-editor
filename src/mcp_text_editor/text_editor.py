@@ -112,9 +112,18 @@ class TextEditor:
                     )
 
                     if line_start >= total_lines:
-                        raise ValueError(
-                            f"Start line {line_start + 1} exceeds file length {total_lines}"
+                        # Return empty content for out of bounds start line
+                        result[file_path].append(
+                            {
+                                "content": "",
+                                "start_line": line_start + 1,
+                                "end_line": line_start + 1,
+                                "hash": file_hash,
+                                "total_lines": total_lines,
+                                "content_size": 0,
+                            }
                         )
+                        continue
                     if line_end < line_start:
                         raise ValueError(
                             "End line must be greater than or equal to start line"
@@ -172,7 +181,7 @@ class TextEditor:
             line_end = len(lines) if line_end is None else min(line_end, len(lines))
 
             if line_start >= len(lines):
-                raise ValueError("Start line exceeds file length")
+                return "", line_start, line_start, file_hash, len(lines), 0
             if line_end < line_start:
                 raise ValueError("End line must be greater than or equal to start line")
 

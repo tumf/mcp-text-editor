@@ -309,4 +309,35 @@ async def test_read_multiple_ranges(editor, test_file):
     assert second_range["content"] == "Line 2\nLine 3\nLine 4\n"
     assert second_range["start_line"] == 2
     assert second_range["end_line"] == 4
+
+
+@pytest.mark.asyncio
+async def test_read_multiple_ranges_out_of_bounds_start(editor, test_file):
+    """Test reading ranges where start line exceeds file length."""
+    ranges = [
+        {
+            "file_path": test_file,
+            "ranges": [
+                {"start": 1000},  # Way beyond file end
+                {"start": 6},  # Just beyond file end
+            ],
+        }
+    ]
+
+    result = await editor.read_multiple_ranges(ranges)
+
+    # Check first range (start line way beyond file end)
+    first_range = result[test_file][0]
+    assert first_range["content"] == ""
+    assert first_range["start_line"] == 1000
+    assert first_range["end_line"] == 1000
+    assert first_range["total_lines"] == 5
+    assert first_range["content_size"] == 0
+
+    # Check second range (start line just beyond file end)
+    second_range = result[test_file][1]
+    assert second_range["content"] == ""
+    assert second_range["start_line"] == 6
+    assert second_range["end_line"] == 6
     assert second_range["total_lines"] == 5
+    assert second_range["content_size"] == 0
