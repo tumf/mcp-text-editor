@@ -119,7 +119,7 @@ class EditTextFileContentsHandler:
     """Handler for editing text file contents."""
 
     name = "edit_text_file_contents"
-    description = "A line editor that supports editing text file contents by specifying line ranges and content. It handles multiple patches in a single operation with hash-based conflict detection. IMPORTANT: (1) Before using this tool, you must first get the file's current hash using get_text_file_contents. (2) Patches must be specified from bottom to top to handle line number shifts correctly, as edits to lower lines don't affect the line numbers of higher lines."
+    description = "A line editor that supports editing text file contents by specifying line ranges and content. It handles multiple patches in a single operation with hash-based conflict detection. IMPORTANT: (1) Before using this tool, you must first get the file's current hash using get_text_file_contents. (2) To avoid line number shifts affecting your patches, use get_text_file_contents to read the same ranges you plan to edit before making changes. (3) Patches must be specified from bottom to top to handle line number shifts correctly, as edits to lower lines don't affect the line numbers of higher lines."
 
     def __init__(self):
         self.editor = TextEditor()
