@@ -4,6 +4,18 @@
 
 A Model Context Protocol (MCP) server that provides text file editing capabilities through a standardized API.
 
+## Overview
+
+MCP Text Editor Server is designed to facilitate safe and efficient text file operations in a client-server architecture. It implements the Model Context Protocol, ensuring reliable file editing with robust conflict detection and resolution. This makes it ideal for applications requiring synchronized file access, such as collaborative editing tools, automated text processing systems, or any scenario where multiple processes need to modify text files safely.
+
+### Key Benefits
+
+- Safe concurrent editing with hash-based validation
+- Efficient partial file access with line-range specifications
+- Atomic multi-file operations
+- Robust error handling and recovery mechanisms
+
+
 ## Features
 
 - Get text file contents with line range specification
@@ -15,7 +27,14 @@ A Model Context Protocol (MCP) server that provides text file editing capabiliti
 - Robust error handling and validation
 - Memory-efficient processing of large files
 
-## Development Environment Setup
+
+## Requirements
+
+- Python 3.11 or higher
+- POSIX-compliant operating system (Linux, macOS, etc.) or Windows
+- Sufficient disk space for text file operations
+- File system permissions for read/write operations
+
 
 1. Install Python 3.11+
 
@@ -285,6 +304,34 @@ The server handles various error cases:
 - Invalid patch ranges
 - Overlapping patches
 - Line number out of bounds
+
+## Security Considerations
+
+- File Path Validation: The server validates all file paths to prevent directory traversal attacks
+- Access Control: Proper file system permissions should be set to restrict access to authorized directories
+- Hash Validation: All file modifications are validated using SHA-256 hashes to prevent race conditions
+- Input Sanitization: All user inputs are properly sanitized and validated
+- Error Handling: Sensitive information is not exposed in error messages
+
+## Troubleshooting
+
+### Common Issues
+
+1. Permission Denied
+   - Check file and directory permissions
+   - Ensure the server process has necessary read/write access
+
+2. Hash Mismatch Errors
+   - The file was modified by another process
+   - Fetch latest content and retry the operation
+
+3. Connection Issues
+   - Verify the server is running and accessible
+   - Check network configuration and firewall settings
+
+4. Performance Issues
+   - Consider using smaller line ranges for large files
+   - Monitor system resources (memory, disk space)
 
 ## Development
 
