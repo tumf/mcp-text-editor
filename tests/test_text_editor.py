@@ -386,3 +386,11 @@ async def test_validate_file_path(editor):
         editor._validate_file_path("../path/to/file.txt")
     with pytest.raises(ValueError, match="Path traversal not allowed"):
         editor._validate_file_path("folder/../file.txt")
+
+
+@pytest.mark.asyncio
+async def test_validate_environment():
+    """Test environment validation."""
+    editor = TextEditor()
+    # Currently just verifies it can be called without error
+    editor._validate_environment()
