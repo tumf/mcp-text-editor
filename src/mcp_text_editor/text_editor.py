@@ -98,14 +98,17 @@ class TextEditor:
                 with open(file_path, "r", encoding="utf-8") as f:
                     lines = f.readlines()
                     total_lines = len(lines)
+                    file_content = "".join(lines)
+                    file_hash = self.calculate_hash(file_content)
 
                 for range_spec in file_range["ranges"]:
                     # Adjust line numbers to 0-based index
                     line_start = max(1, range_spec["start"]) - 1
+                    end_value = range_spec.get("end")
                     line_end = (
                         total_lines
-                        if range_spec["end"] is None
-                        else min(range_spec["end"], total_lines)
+                        if end_value is None
+                        else min(end_value, total_lines)
                     )
 
                     if line_start >= total_lines:
@@ -125,7 +128,7 @@ class TextEditor:
                             "content": content,
                             "start_line": line_start + 1,
                             "end_line": line_end,
-                            "hash": self.calculate_hash(content),
+                            "hash": file_hash,
                             "total_lines": total_lines,
                             "content_size": len(content),
                         }
