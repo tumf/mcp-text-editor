@@ -162,7 +162,8 @@ class TextEditor:
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 lines = f.readlines()
-
+            file_content = "".join(lines)
+            file_hash = self.calculate_hash(file_content)
             # Adjust line numbers to 0-based index
             line_start = max(1, line_start) - 1
             line_end = len(lines) if line_end is None else min(line_end, len(lines))
@@ -179,7 +180,7 @@ class TextEditor:
                 content,
                 line_start + 1,
                 line_end,
-                self.calculate_hash(content),
+                file_hash,
                 len(lines),
                 len(content),
             )
