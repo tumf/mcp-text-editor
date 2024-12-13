@@ -1,5 +1,5 @@
 [project]
-name = "mcp-text-editor"
+name = "mcp_text_editor"
 version = "0.1.0"
 description = "MCP Text Editor Server - Edit text files via MCP protocol"
 authors = [
@@ -14,7 +14,7 @@ readme = "README.md"
 license = { text = "MIT" }
 
 [project.scripts]
-mcp-text-editor = "mcp_text_editor:run"
+mcp_text_editor = "src.mcp_text_editor:run"
 
 [project.optional-dependencies]
 test = [
@@ -38,6 +38,7 @@ build-backend = "hatchling.build"
 asyncio_mode = "strict"
 testpaths = "tests"
 asyncio_default_fixture_loop_scope = "function"
+pythonpath = ["src"]
 
 [tool.ruff]
 lint.select = [
@@ -55,6 +56,7 @@ lint.ignore = [
 ]
 lint.extend-select = ["I"]
 line-length = 88
+src = ["src"]
 
 [tool.black]
 line-length = 88
@@ -63,3 +65,10 @@ target-version = ['py311']
 [tool.isort]
 profile = "black"
 line_length = 88
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+namespace_packages = true
+explicit_package_bases = true
+mypy_path = "src"
