@@ -394,3 +394,25 @@ async def test_validate_environment():
     editor = TextEditor()
     # Currently just verifies it can be called without error
     editor._validate_environment()
+
+
+@pytest.mark.asyncio
+async def test_edit_file_contents_io_error(editor, tmp_path):
+    """Test editing file with IO error."""
+    test_file = tmp_path / "io_error_test.txt"
+    test_file.write_text("test content")
+
+    # Make file read-only
+    test_file.chmod(0o444)
+
+    result = await editor.edit_file_contents(
+        str(test_file),
+        editor.calculate_hash("test content"),
+        [{"line_start": 1, "contents": "new content"}],
+    )
+
+    assert result["result"] == "error"
+    assert "permission denied" in result["reason"].lower()
+
+    # Restore permissions for cleanup
+    test_file.chmod(0o644)
