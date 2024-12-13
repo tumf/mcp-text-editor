@@ -1,5 +1,7 @@
 # MCP Text Editor Server
 
+[![codecov](https://codecov.io/gh/tumf/mcp-text-editor/graph/badge.svg?token=52D51U0ZUR)](https://codecov.io/gh/tumf/mcp-text-editor)
+
 A Model Context Protocol (MCP) server that provides text file editing capabilities through a standardized API.
 
 ## Features
@@ -232,6 +234,7 @@ Important Notes:
 ### Common Usage Pattern
 
 1. Get current content and hash:
+
 ```python
 contents = await get_text_file_contents({
     "files": [
@@ -244,6 +247,7 @@ contents = await get_text_file_contents({
 ```
 
 2. Edit file content:
+
 ```python
 result = await edit_text_file_contents({
     "files": [
@@ -263,6 +267,7 @@ result = await edit_text_file_contents({
 ```
 
 3. Handle conflicts:
+
 ```python
 if result["file.txt"]["result"] == "error":
     if "hash mismatch" in result["file.txt"]["reason"]:
