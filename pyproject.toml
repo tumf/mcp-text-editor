@@ -1,5 +1,5 @@
 [project]
-name = "mcp_text_editor"
+name = "mcp-text-editor"
 version = "0.1.0"
 description = "MCP Text Editor Server - Edit text files via MCP protocol"
 authors = [
@@ -14,7 +14,7 @@ readme = "README.md"
 license = { text = "MIT" }
 
 [project.scripts]
-mcp_text_editor = "src.mcp_text_editor:run"
+mcp-text-editor = "mcp_text_editor:run"
 
 [project.optional-dependencies]
 test = [
@@ -72,3 +72,6 @@ ignore_missing_imports = true
 namespace_packages = true
 explicit_package_bases = true
 mypy_path = "src"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mcp_text_editor"]

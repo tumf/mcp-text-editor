@@ -265,7 +265,7 @@ async def call_tool(name: str, arguments: Any) -> Sequence[TextContent]:
             raise ValueError(f"Unknown tool: {name}")
     except ValueError:
         logger.error(traceback.format_exc())
-        raise  # ValueErrorはそのまま伝播
+        raise
     except Exception as e:
         logger.error(traceback.format_exc())
         raise RuntimeError(f"Error executing command: {str(e)}") from e
