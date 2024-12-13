@@ -373,3 +373,16 @@ async def test_read_multiple_ranges_out_of_bounds_end(editor, test_file):
     assert second_range["end_line"] == 5
     assert second_range["total_lines"] == 5
     assert second_range["content_size"] == len(second_range["content"])
+
+
+@pytest.mark.asyncio
+async def test_validate_file_path(editor):
+    """Test file path validation."""
+    # Valid path
+    editor._validate_file_path("/path/to/file.txt")
+
+    # Test path traversal attempt
+    with pytest.raises(ValueError, match="Path traversal not allowed"):
+        editor._validate_file_path("../path/to/file.txt")
+    with pytest.raises(ValueError, match="Path traversal not allowed"):
+        editor._validate_file_path("folder/../file.txt")
