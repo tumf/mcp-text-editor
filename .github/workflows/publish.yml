@@ -46,7 +46,7 @@ jobs:
         run: |
           # Strip 'v' prefix from tag and update version.py
           VERSION=${GITHUB_REF#refs/tags/v}
-          echo "__version__ = \"${VERSION}\"" > mcp_shell_server/version.py
+          echo "__version__ = \"${VERSION}\"" > mcp_text_editor/version.py
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
