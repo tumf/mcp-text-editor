@@ -1,5 +1,7 @@
 """Tests for the TextEditor class."""
 
+import os
+
 import pytest
 
 from mcp_text_editor.text_editor import TextEditor
@@ -416,3 +418,43 @@ async def test_edit_file_contents_io_error(editor, tmp_path):
 
     # Restore permissions for cleanup
     test_file.chmod(0o644)
+
+
+@pytest.mark.asyncio
+async def test_read_file_contents_sjis(editor, test_file_sjis):
+    """Test reading Shift-JIS encoded file.
+
+    This test verifies that:
+    1. The text editor can detect and read Shift-JIS encoded files
+    2. The content is correctly decoded to Unicode
+    3. Line counting works correctly with multi-byte characters
+    """
+    # Test reading entire file
+    content, start, end, hash_value, total_lines, size = (
+        await editor.read_file_contents(test_file_sjis)
+    )
+
+    # The expected string contains Japanese characters '\u30c6\u30b9\u30c8' (test)
+    # followed by numbers 1-3, each on a new line
+    expected = "\u30c6\u30b9\u30c81\n\u30c6\u30b9\u30c82\n\u30c6\u30b9\u30c83\n"
+    assert content == expected
+    assert start == 1
+    assert end == 3  # 3 lines total
+    assert isinstance(hash_value, str)
+    assert len(hash_value) == 64  # SHA-256 hash
+    assert total_lines == 3
+    actual_size = os.path.getsize(test_file_sjis)
+    assert size == actual_size
+
+    # Test reading specific lines
+    content, start, end, hash_value, total_lines, size = (
+        await editor.read_file_contents(test_file_sjis, line_start=2, line_end=3)
+    )
+    expected_partial = "\u30c6\u30b9\u30c82\n\u30c6\u30b9\u30c83\n"
+    assert content == expected_partial
+    assert start == 2
+    assert end == 3
+    assert isinstance(hash_value, str)
+    assert len(hash_value) == 64
+    assert total_lines == 3  # Total lines in file should remain the same
+    assert size == len(content.encode("shift-jis"))
