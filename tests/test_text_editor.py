@@ -680,3 +680,32 @@ async def test_edit_new_file(editor, tmp_path):
     # Final content check
     content = new_file.read_text()
     assert content == initial_content + second_content
+
+
+@pytest.mark.asyncio
+async def test_create_empty_file(editor, tmp_path):
+    """Test creating an empty file."""
+    empty_file = tmp_path / "empty.txt"
+
+    # Create an empty file
+    result = await editor.edit_file_contents(
+        str(empty_file),
+        "",  # Empty hash for new file
+        [{"line_start": 1, "contents": ""}],  # No range_hash needed for new file
+    )
+
+    # Verify file creation was successful
+    assert result["result"] == "ok"
+    assert result["hash"] is not None
+    assert empty_file.exists()
+
+    # Verify file is empty except for a newline
+    content = empty_file.read_text()
+    assert content == "\n"  # Should contain just a newline
+
+    # Verify file stats
+    file_stats = await editor.read_file_contents(str(empty_file))
+    content, start, end, hash_value, total_lines, size = file_stats
+    assert content == "\n"
+    assert total_lines == 1
+    assert size == len(content)

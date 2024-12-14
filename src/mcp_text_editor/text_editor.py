@@ -318,6 +318,7 @@ class TextEditor:
                         "hash": None,
                         "content": None,
                     }
+                # Initialize empty state for new file creation
                 current_content = ""
                 current_hash = ""
                 lines = []
@@ -375,8 +376,11 @@ class TextEditor:
                 line_end = patch.get("line_end", line_start)
                 expected_range_hash = patch.get("range_hash")
 
-                # Validate range_hash
-                if expected_range_hash is None:
+                # For new files, we'll automatically use empty content hash
+                if not os.path.exists(file_path):
+                    expected_range_hash = self.calculate_hash("")
+                # For existing files, range_hash is required
+                elif expected_range_hash is None:
                     return {
                         "result": "error",
                         "reason": "range_hash is required for each patch",
