@@ -719,7 +719,7 @@ async def test_append_content_without_range_hash(editor, tmp_path):
 
     # Verify append was successful
     assert result["result"] == "ok"
-    assert result["hash"] is not None
+    assert result["file_hash"] is not None
 
     # Verify content
     content = test_file.read_text()
