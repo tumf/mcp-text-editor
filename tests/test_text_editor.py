@@ -683,6 +683,50 @@ async def test_edit_new_file(editor, tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_append_content_without_range_hash(editor, tmp_path):
+    """Test appending content to an existing file without range_hash.
+
+    This test verifies that:
+    1. Content can be appended to an existing file
+    2. Appending works when line_end < line_start
+    3. Range hash is not required for appending
+    4. File hash consistency is maintained
+    """
+    # Create a test file with initial content
+    test_file = tmp_path / "append_test.txt"
+    initial_content = "Initial line 1\nInitial line 2\n"
+    test_file.write_text(initial_content)
+
+    # Get file hash and total lines
+    content, _, _, initial_hash, total_lines, _ = await editor.read_file_contents(
+        str(test_file)
+    )
+
+    # Append new content without range_hash
+    new_content = "New line 3\nNew line 4\n"
+    result = await editor.edit_file_contents(
+        str(test_file),
+        initial_hash,
+        [
+            {
+                "line_start": total_lines + 1,
+                "line_end": total_lines,  # end < start indicates append
+                "contents": new_content,
+                # No range_hash needed for append operation
+            }
+        ],
+    )
+
+    # Verify append was successful
+    assert result["result"] == "ok"
+    assert result["hash"] is not None
+
+    # Verify content
+    content = test_file.read_text()
+    assert content == initial_content + new_content
+
+
+@pytest.mark.asyncio
 async def test_create_empty_file(editor, tmp_path):
     """Test creating an empty file."""
     empty_file = tmp_path / "empty.txt"

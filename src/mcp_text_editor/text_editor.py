@@ -403,21 +403,21 @@ class TextEditor:
                 line_start = patch.get("line_start", 1)
                 line_end = patch.get("line_end", line_start)
                 expected_range_hash = patch.get("range_hash")
+                is_insertion = line_end < line_start
 
-                # For new files, we'll automatically use empty content hash
-                if not os.path.exists(file_path):
+                # Skip range_hash for new files and insertions
+                if not os.path.exists(file_path) or is_insertion:
                     expected_range_hash = self.calculate_hash("")
-                # For existing files, range_hash is required
+                # For existing files and non-insertions, range_hash is required
                 elif expected_range_hash is None:
                     return {
                         "result": "error",
-                        "reason": "range_hash is required for each patch",
+                        "reason": "range_hash is required for each patch (except for new files and append operations)",
                         "hash": None,
                         "content": current_content,
                     }
 
                 # Handle insertion or replacement
-                is_insertion = line_end < line_start
                 if is_insertion:
                     target_content = ""  # For insertion, we verify empty content
 
@@ -436,10 +436,9 @@ class TextEditor:
                     target_lines = lines[line_start : line_end + 1]
                     target_content = "".join(target_lines)
 
-                # Calculate actual range hash
+                # Calculate actual range hash and verify only for non-insertions
                 actual_range_hash = self.calculate_hash(target_content)
-                # Verify range hash
-                if actual_range_hash != expected_range_hash:
+                if not is_insertion and actual_range_hash != expected_range_hash:
                     return {
                         "result": "error",
                         "reason": f"Range hash mismatch for lines {line_start + 1}-{line_end + 1}",
