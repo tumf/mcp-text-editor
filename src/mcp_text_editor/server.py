@@ -84,7 +84,7 @@ class GetTextFileContentsHandler:
                     line_start = arguments.get("line_start", 1)
                     line_end = arguments.get("line_end")
 
-                    content, start, end, content_hash, file_lines, file_size = (
+                    content, start, end, file_hash, file_lines, file_size = (
                         await self.editor.read_file_contents(
                             file_path, line_start, line_end
                         )
@@ -94,7 +94,7 @@ class GetTextFileContentsHandler:
                         "contents": content,
                         "line_start": start,
                         "line_end": end,
-                        "hash": content_hash,
+                        "file_hash": file_hash,
                         "file_path": file_path,
                         "file_lines": file_lines,
                         "file_size": file_size,
@@ -139,7 +139,7 @@ class EditTextFileContentsHandler:
                             "type": "object",
                             "properties": {
                                 "path": {"type": "string"},
-                                "hash": {"type": "string"},
+                                "file_hash": {"type": "string"},
                                 "patches": {
                                     "type": "array",
                                     "items": {
@@ -159,7 +159,7 @@ class EditTextFileContentsHandler:
                                     },
                                 },
                             },
-                            "required": ["path", "hash", "patches"],
+                            "required": ["path", "file_hash", "patches"],
                         },
                     }
                 },
@@ -191,15 +191,15 @@ class EditTextFileContentsHandler:
                         results[file_path] = {
                             "result": "error",
                             "reason": "File not found",
-                            "hash": None,
+                            "file_hash": None,
                         }
                         continue
 
                     try:
-                        file_hash = file_operation["hash"]
+                        file_hash = file_operation["file_hash"]
                     except KeyError as e:
                         raise RuntimeError(
-                            f"Missing required field: hash for file {file_path}"
+                            f"Missing required field: file_hash for file {file_path}"
                         ) from e
 
                     # Ensure patches list is not empty
@@ -214,7 +214,7 @@ class EditTextFileContentsHandler:
                         results[file_path] = {
                             "result": "error",
                             "reason": "Empty patches list",
-                            "hash": None,
+                            "file_hash": None,
                         }
                         continue
 
@@ -227,7 +227,7 @@ class EditTextFileContentsHandler:
                         results[file_path] = {
                             "result": "error",
                             "reason": str(e),
-                            "hash": None,
+                            "file_hash": None,
                         }
                     else:
                         raise
