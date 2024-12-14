@@ -2,7 +2,6 @@
 
 import json
 import logging
-import os
 import traceback
 from collections.abc import Sequence
 from typing import Any, Dict, List
@@ -176,6 +175,9 @@ class EditTextFileContentsHandler:
             files = arguments["files"]
             results: Dict[str, Dict] = {}
 
+            if len(files) == 0:
+                return [TextContent(type="text", text=json.dumps(results, indent=2))]
+
             for file_operation in files:
                 file_path = None
                 try:
@@ -185,15 +187,6 @@ class EditTextFileContentsHandler:
                         raise RuntimeError(
                             "Missing required field: path in file operation"
                         ) from e
-
-                    # Ensure the file exists
-                    if not os.path.exists(file_path):
-                        results[file_path] = {
-                            "result": "error",
-                            "reason": "File not found",
-                            "file_hash": None,
-                        }
-                        continue
 
                     try:
                         file_hash = file_operation["file_hash"]
@@ -215,6 +208,7 @@ class EditTextFileContentsHandler:
                             "result": "error",
                             "reason": "Empty patches list",
                             "file_hash": None,
+                            "content": None,
                         }
                         continue
 
@@ -228,6 +222,7 @@ class EditTextFileContentsHandler:
                             "result": "error",
                             "reason": str(e),
                             "file_hash": None,
+                            "content": None,
                         }
                     else:
                         raise
