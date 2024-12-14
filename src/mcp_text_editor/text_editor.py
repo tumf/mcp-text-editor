@@ -1,6 +1,7 @@
 """Core text editor functionality with file operation handling."""
 
 import hashlib
+import os
 from typing import Any, Dict, List, Optional, Tuple, TypedDict
 
 
@@ -309,21 +310,34 @@ class TextEditor:
         """
         self._validate_file_path(file_path)
         try:
-            # Read current file content and verify hash
-            current_content, _, _, current_hash, total_lines, _ = (
-                await self.read_file_contents(file_path)
-            )
+            if not os.path.exists(file_path):
+                if expected_hash != "":  # Only allow empty hash for new files
+                    return {
+                        "result": "error",
+                        "reason": "File not found and non-empty hash provided",
+                        "hash": None,
+                        "content": None,
+                    }
+                current_content = ""
+                current_hash = ""
+                lines = []
+                encoding = "utf-8"
+            else:
+                # Read current file content and verify hash
+                current_content, _, _, current_hash, total_lines, _ = (
+                    await self.read_file_contents(file_path)
+                )
 
-            if current_hash != expected_hash:
-                return {
-                    "result": "error",
-                    "reason": "Hash mismatch - file has been modified",
-                    "hash": None,
-                    "content": current_content,
-                }
+                if current_hash != expected_hash:
+                    return {
+                        "result": "error",
+                        "reason": "Hash mismatch - file has been modified",
+                        "hash": None,
+                        "content": current_content,
+                    }
 
-            # Convert content to lines for easier manipulation
-            lines = current_content.splitlines(keepends=True)
+                # Convert content to lines for easier manipulation
+                lines = current_content.splitlines(keepends=True)
 
             # Sort patches from bottom to top to avoid line number shifts
             sorted_patches = sorted(
@@ -370,29 +384,28 @@ class TextEditor:
                         "content": current_content,
                     }
 
-                # Validate line numbers
-                if line_start < 1:
-                    raise ValueError("Line numbers must be positive")
-                if line_end is not None and line_end < line_start:
-                    raise ValueError(
-                        "End line must be greater than or equal to start line"
-                    )
+                # Handle insertion or replacement
+                is_insertion = line_end < line_start
+                if is_insertion:
+                    target_content = ""  # For insertion, we verify empty content
 
                 # Convert to 0-based indexing
                 line_start -= 1
-                if line_end is not None:
-                    line_end -= 1
-                else:
-                    line_end = len(lines) - 1
+                if not is_insertion:
+                    if line_end is not None:
+                        line_end -= 1
+                    else:
+                        line_end = len(lines) - 1
 
-                # Ensure we don't exceed file bounds
-                line_end = min(line_end, len(lines) - 1)
+                    # Ensure we don't exceed file bounds for replacements
+                    line_end = min(line_end, len(lines) - 1)
+
+                    # Calculate target content for hash verification
+                    target_lines = lines[line_start : line_end + 1]
+                    target_content = "".join(target_lines)
 
                 # Calculate actual range hash
-                target_lines = lines[line_start : line_end + 1]
-                target_content = "".join(target_lines)
                 actual_range_hash = self.calculate_hash(target_content)
-
                 # Verify range hash
                 if actual_range_hash != expected_range_hash:
                     return {
@@ -402,16 +415,25 @@ class TextEditor:
                         "content": current_content,
                     }
 
-                # Replace lines
+                # Replace lines or insert content
                 new_content = patch["contents"]
                 if not new_content.endswith("\n"):
                     new_content += "\n"
                 new_lines = new_content.splitlines(keepends=True)
-                lines[line_start : line_end + 1] = new_lines
+                if is_insertion:
+                    # For insertion, we insert at line_start
+                    lines[line_start:line_start] = new_lines
+                else:
+                    # For replacement, we replace the range
+                    lines[line_start : line_end + 1] = new_lines
 
             # Write the final content back to file
             final_content = "".join(lines)
-            encoding = self._detect_encoding(file_path)
+            encoding = (
+                "utf-8"
+                if not os.path.exists(file_path)
+                else self._detect_encoding(file_path)
+            )
             with open(file_path, "w", encoding=encoding) as f:
                 f.write(final_content)
 

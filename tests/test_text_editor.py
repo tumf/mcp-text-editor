@@ -625,3 +625,58 @@ async def test_range_hash_calculation(editor, test_file):
     assert (
         result[test_file][1]["range_hash"] == repeat_result[test_file][1]["range_hash"]
     )
+
+
+@pytest.mark.asyncio
+async def test_edit_new_file(editor, tmp_path):
+    """Test creating and editing a new file."""
+    new_file = tmp_path / "new_file.txt"
+    initial_content = "This is a new file\n"
+
+    # Create edit operation for new file
+    result = await editor.edit_file_contents(
+        str(new_file),
+        "",  # Empty hash for new file
+        [
+            {
+                "line_start": 1,
+                "line_end": 1,
+                "contents": initial_content,
+                "range_hash": editor.calculate_hash(
+                    ""
+                ),  # Empty content hash for new file
+            }
+        ],
+    )
+
+    # Verify file creation was successful
+    assert result["result"] == "ok"
+    assert result["hash"] is not None
+    assert new_file.exists()
+
+    # Verify content
+    content = new_file.read_text()
+    assert content == initial_content
+
+    # Try to append content
+    second_content = "This is the second line\n"
+    result = await editor.edit_file_contents(
+        str(new_file),
+        result["hash"],  # Use hash from previous operation
+        [
+            {
+                "line_start": 2,
+                "line_end": 1,  # End before start indicates append
+                "contents": second_content,
+                "range_hash": editor.calculate_hash(""),  # Empty hash for append
+            }
+        ],
+    )
+
+    # Verify append was successful
+    assert result["result"] == "ok"
+    assert result["hash"] is not None
+
+    # Final content check
+    content = new_file.read_text()
+    assert content == initial_content + second_content
