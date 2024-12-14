@@ -47,47 +47,66 @@ class TextEditor:
         if ".." in file_path:
             raise ValueError("Path traversal not allowed")
 
-        # Future: Add more path validation rules
-        return
-
     def _detect_encoding(self, file_path: str) -> str:
         """
-        Detect the encoding of a file using chardet.
+        Detect file encoding with Shift-JIS prioritized.
 
         Args:
             file_path (str): Path to the file
 
         Returns:
-            str: Detected encoding, always returns a valid encoding string.
-                Falls back to utf-8 if detection fails.
+            str: Detected encoding, falls back to utf-8 if detection fails.
         """
-        try:
-            import chardet
-        except ImportError:
-            return "utf-8"
 
+        def try_decode(data: bytes, encoding: str) -> bool:
+            """Try to decode data with the given encoding."""
+            try:
+                data.decode(encoding)
+                return True
+            except UnicodeDecodeError:
+                return False
+
+        # Read file content for encoding detection
         try:
-            # Read the first 4KB of the file for encoding detection
             with open(file_path, "rb") as f:
-                raw_data = f.read(4096)
+                raw_data = f.read()
 
-            # chardetを使用してエンコーディングを検出
-            result = chardet.detect(raw_data)
+                # Try encodings in order of priority
+                if try_decode(raw_data, "shift_jis"):
+                    return "shift_jis"
+                if try_decode(raw_data, "utf-8"):
+                    return "utf-8"
 
-            # 検出結果がNoneの場合や信頼度が低い場合はUTF-8を使用
-            if (
-                not result
-                or not result.get("encoding")
-                or result.get("confidence", 0) < 0.7
-            ):
+                # As a last resort, use chardet
+                try:
+                    import chardet
+
+                    result = chardet.detect(raw_data)
+                    encoding = result.get("encoding") or ""
+                    encoding = encoding.lower()
+
+                    if encoding:
+                        # Map encoding aliases
+                        if encoding in [
+                            "shift_jis",
+                            "shift-jis",
+                            "shiftjis",
+                            "sjis",
+                            "csshiftjis",
+                        ]:
+                            return "shift_jis"
+                        if encoding in ["ascii"]:
+                            return "utf-8"
+                        # Try detected encoding
+                        if try_decode(raw_data, encoding):
+                            return encoding
+                except ImportError:
+                    pass
+
+                # Fall back to UTF-8
                 return "utf-8"
 
-            # 検出されたエンコーディングを返す
-            encoding = result["encoding"]
-            return encoding if encoding else "utf-8"
-
-        except IOError:
-            # ファイル読み込みに失敗した場合はUTF-8を使用
+        except (IOError, OSError, UnicodeDecodeError):
             return "utf-8"
 
     @staticmethod
@@ -160,24 +179,23 @@ class TextEditor:
 
                     if line_start >= total_lines:
                         # Return empty content for out of bounds start line
+                        empty_content = ""
                         result[file_path].append(
                             {
-                                "content": "",
+                                "content": empty_content,
                                 "start_line": line_start + 1,
                                 "end_line": line_start + 1,
                                 "hash": file_hash,
+                                "range_hash": self.calculate_hash(empty_content),
                                 "total_lines": total_lines,
                                 "content_size": 0,
                             }
                         )
                         continue
-                    if line_end < line_start:
-                        raise ValueError(
-                            "End line must be greater than or equal to start line"
-                        )
-
+                        continue
                     selected_lines = lines[line_start:line_end]
                     content = "".join(selected_lines)
+                    range_hash = self.calculate_hash(content)
 
                     result[file_path].append(
                         {
@@ -185,11 +203,11 @@ class TextEditor:
                             "start_line": line_start + 1,
                             "end_line": line_end,
                             "hash": file_hash,
+                            "range_hash": range_hash,
                             "total_lines": total_lines,
                             "content_size": len(content),
                         }
                     )
-
             except FileNotFoundError as e:
                 raise FileNotFoundError(f"File not found: {file_path}") from e
             except IOError as e:
@@ -268,22 +286,22 @@ class TextEditor:
                 - line_start (int): Starting line number (1-based)
                 - line_end (Optional[int]): Ending line number (inclusive)
                 - contents (str): New content to insert
+        Edit file contents with hash-based conflict detection and multiple patches.
+
+        Args:
+            file_path (str): Path to the file to edit
+            expected_hash (str): Expected hash of the file before editing
+            patches (List[Dict[str, Any]]): List of patches to apply, each containing:
+                - line_start (int): Starting line number (1-based)
+                - line_end (Optional[int]): Ending line number (inclusive)
+                - contents (str): New content to insert
+                - range_hash (str): Expected hash of the content being replaced
 
         Returns:
             Dict[str, Any]: Results of the operation containing:
                 - result: "ok" or "error"
                 - hash: New file hash if successful, None if error
                 - reason: Error message if result is "error"
-
-        Raises:
-            ValueError: If file path is invalid or patches are invalid
-            FileNotFoundError: If file does not exist
-            # Check file permission
-            if not os.access(file_path, os.W_OK):
-                return {
-                    "result": "error",
-                    "reason": "Permission denied: File is not writable",
-                    "hash": None,
                     "content": None,
                 }
 
@@ -341,6 +359,16 @@ class TextEditor:
                 # Get line numbers (1-based)
                 line_start = patch.get("line_start", 1)
                 line_end = patch.get("line_end", line_start)
+                expected_range_hash = patch.get("range_hash")
+
+                # Validate range_hash
+                if expected_range_hash is None:
+                    return {
+                        "result": "error",
+                        "reason": "range_hash is required for each patch",
+                        "hash": None,
+                        "content": current_content,
+                    }
 
                 # Validate line numbers
                 if line_start < 1:
@@ -360,22 +388,35 @@ class TextEditor:
                 # Ensure we don't exceed file bounds
                 line_end = min(line_end, len(lines) - 1)
 
+                # Calculate actual range hash
+                target_lines = lines[line_start : line_end + 1]
+                target_content = "".join(target_lines)
+                actual_range_hash = self.calculate_hash(target_content)
+
+                # Verify range hash
+                if actual_range_hash != expected_range_hash:
+                    return {
+                        "result": "error",
+                        "reason": f"Range hash mismatch for lines {line_start + 1}-{line_end + 1}",
+                        "hash": None,
+                        "content": current_content,
+                    }
+
                 # Replace lines
                 new_content = patch["contents"]
                 if not new_content.endswith("\n"):
                     new_content += "\n"
                 new_lines = new_content.splitlines(keepends=True)
-
                 lines[line_start : line_end + 1] = new_lines
 
-            # Write back to file
+            # Write the final content back to file
+            final_content = "".join(lines)
             encoding = self._detect_encoding(file_path)
-            new_content = "".join(lines)
             with open(file_path, "w", encoding=encoding) as f:
-                f.write(new_content)
+                f.write(final_content)
 
             # Calculate new hash
-            new_hash = self.calculate_hash(new_content)
+            new_hash = self.calculate_hash(final_content)
 
             return {
                 "result": "ok",
