@@ -287,11 +287,11 @@ class TextEditor:
                 - line_start (int): Starting line number (1-based)
                 - line_end (Optional[int]): Ending line number (inclusive)
                 - contents (str): New content to insert
-        Edit file contents with hash-based conflict detection and multiple patches.
+        Edit file contents with hash-based conflict detection and multiple patches (supporting new file creation).
 
         Args:
-            file_path (str): Path to the file to edit
-            expected_hash (str): Expected hash of the file before editing
+            file_path (str): Path to the file to edit (parent directories are created automatically)
+            expected_hash (str): Expected hash of the file before editing (empty string for new files)
             patches (List[Dict[str, Any]]): List of patches to apply, each containing:
                 - line_start (int): Starting line number (1-based)
                 - line_end (Optional[int]): Ending line number (inclusive)
@@ -315,9 +315,38 @@ class TextEditor:
                     return {
                         "result": "error",
                         "reason": "File not found and non-empty hash provided",
-                        "hash": None,
+                        "file_hash": None,
                         "content": None,
                     }
+                # Create parent directories if they don't exist
+                parent_dir = os.path.dirname(file_path)
+                if parent_dir:
+                    try:
+                        os.makedirs(parent_dir, exist_ok=True)
+                    except OSError as e:
+                        return {
+                            "result": "error",
+                            "reason": f"Failed to create directory: {str(e)}",
+                            "file_hash": None,
+                            "content": None,
+                        }
+                # Initialize empty state for new file
+                current_content = ""
+                current_hash = ""
+                lines: List[str] = []
+                # Create parent directories if they don't exist
+                parent_dir = os.path.dirname(file_path)
+                if parent_dir:
+                    try:
+                        os.makedirs(parent_dir, exist_ok=True)
+                    except OSError as e:
+                        return {
+                            "result": "error",
+                            "reason": f"Failed to create directory: {str(e)}",
+                            "file_hash": None,
+                            "content": None,
+                        }
+                # Initialize empty state for new file creation
                 current_content = ""
                 current_hash = ""
                 lines = []
@@ -375,8 +404,11 @@ class TextEditor:
                 line_end = patch.get("line_end", line_start)
                 expected_range_hash = patch.get("range_hash")
 
-                # Validate range_hash
-                if expected_range_hash is None:
+                # For new files, we'll automatically use empty content hash
+                if not os.path.exists(file_path):
+                    expected_range_hash = self.calculate_hash("")
+                # For existing files, range_hash is required
+                elif expected_range_hash is None:
                     return {
                         "result": "error",
                         "reason": "range_hash is required for each patch",
@@ -442,7 +474,7 @@ class TextEditor:
 
             return {
                 "result": "ok",
-                "hash": new_hash,
+                "file_hash": new_hash,
                 "reason": None,
             }
 
@@ -450,20 +482,20 @@ class TextEditor:
             return {
                 "result": "error",
                 "reason": f"File not found: {file_path}",
-                "hash": None,
+                "file_hash": None,
                 "content": None,
             }
         except (IOError, UnicodeError, PermissionError) as e:
             return {
                 "result": "error",
                 "reason": f"Error editing file: {str(e)}",
-                "hash": None,
+                "file_hash": None,
                 "content": None,
             }
         except Exception as e:
             return {
                 "result": "error",
                 "reason": str(e),
-                "hash": None,
+                "file_hash": None,
                 "content": None,
             }

@@ -85,7 +85,7 @@ async def test_edit_file_contents(editor, test_file):
     # Verify changes
     new_content, _, _, new_hash, _, _ = await editor.read_file_contents(test_file)
     assert "Modified Line 2" in new_content
-    assert result["hash"] == new_hash
+    assert result["file_hash"] == new_hash
 
 
 @pytest.mark.asyncio
@@ -651,7 +651,7 @@ async def test_edit_new_file(editor, tmp_path):
 
     # Verify file creation was successful
     assert result["result"] == "ok"
-    assert result["hash"] is not None
+    assert result["file_hash"] is not None
     assert new_file.exists()
 
     # Verify content
@@ -662,7 +662,7 @@ async def test_edit_new_file(editor, tmp_path):
     second_content = "This is the second line\n"
     result = await editor.edit_file_contents(
         str(new_file),
-        result["hash"],  # Use hash from previous operation
+        result["file_hash"],  # Use hash from previous operation
         [
             {
                 "line_start": 2,
@@ -675,8 +675,37 @@ async def test_edit_new_file(editor, tmp_path):
 
     # Verify append was successful
     assert result["result"] == "ok"
-    assert result["hash"] is not None
+    assert result["file_hash"] is not None
 
     # Final content check
     content = new_file.read_text()
     assert content == initial_content + second_content
+
+
+@pytest.mark.asyncio
+async def test_create_empty_file(editor, tmp_path):
+    """Test creating an empty file."""
+    empty_file = tmp_path / "empty.txt"
+
+    # Create an empty file
+    result = await editor.edit_file_contents(
+        str(empty_file),
+        "",  # Empty hash for new file
+        [{"line_start": 1, "contents": ""}],  # No range_hash needed for new file
+    )
+
+    # Verify file creation was successful
+    assert result["result"] == "ok"
+    assert result["file_hash"] is not None
+    assert empty_file.exists()
+
+    # Verify file is empty except for a newline
+    content = empty_file.read_text()
+    assert content == "\n"  # Should contain just a newline
+
+    # Verify file stats
+    file_stats = await editor.read_file_contents(str(empty_file))
+    content, start, end, hash_value, total_lines, size = file_stats
+    assert content == "\n"
+    assert total_lines == 1
+    assert size == len(content)
