@@ -76,50 +76,64 @@ class GetTextFileContentsHandler:
     async def run_tool(self, arguments: Dict[str, Any]) -> Sequence[TextContent]:
         """Execute the tool with given arguments."""
         try:
+            # Handle 'files' key missing
             if "files" not in arguments:
-                # Handle legacy single file request
-                if "file_path" in arguments:
-                    file_path = arguments["file_path"]
-                    line_start = arguments.get("line_start", 1)
-                    line_end = arguments.get("line_end")
+                if "file_path" not in arguments:
+                    raise RuntimeError("Missing required argument: 'files'")
 
-                    content, start, end, file_hash, file_lines, file_size = (
-                        await self.editor.read_file_contents(
-                            file_path, line_start, line_end
-                        )
-                    )
-
-                    response = {
-                        "contents": content,
-                        "line_start": start,
-                        "line_end": end,
-                        "file_hash": file_hash,
-                        "file_path": file_path,
-                        "file_lines": file_lines,
-                        "file_size": file_size,
-                    }
-
-                    return [
-                        TextContent(type="text", text=json.dumps(response, indent=2))
+                # Convert legacy format to new format
+                file_path = arguments["file_path"]
+                line_start = arguments.get("line_start", 1)
+                line_end = arguments.get("line_end")
+                arguments = {
+                    "files": [
+                        {
+                            "file_path": file_path,
+                            "ranges": [
+                                {
+                                    "start": line_start,
+                                    "end": line_end if line_end else None,
+                                }
+                            ],
+                        }
                     ]
-                else:
-                    raise RuntimeError("Missing required argument: files")
+                }
+                legacy_format = True
+            else:
+                legacy_format = False
 
-            # Handle multi-file request
+            # Handle request
             result = await self.editor.read_multiple_ranges(arguments["files"])
-            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+            # Convert to legacy format if it was a legacy request
+            if legacy_format:
+                file_path = arguments["files"][0]["file_path"]
+                file_result = result[file_path]
+                range_result = file_result["ranges"][0]
+                response = {
+                    "file_path": file_path,
+                    "contents": range_result["content"],
+                    "line_start": range_result["start_line"],
+                    "line_end": range_result["end_line"],
+                    "file_hash": file_result["file_hash"],
+                    "file_lines": range_result["total_lines"],
+                    "file_size": range_result["content_size"],
+                }
+            else:
+                response = result
+
+            return [TextContent(type="text", text=json.dumps(response, indent=2))]
 
         except KeyError as e:
-            raise RuntimeError(f"Missing required argument: {e}") from e
+            raise RuntimeError(f"Missing required argument: '{e}'")
         except Exception as e:
-            raise RuntimeError(f"Error processing request: {str(e)}") from e
+            raise RuntimeError(f"Error processing request: {str(e)}")
 
 
 class EditTextFileContentsHandler:
     """Handler for editing text file contents."""
 
     name = "edit_text_file_contents"
-    description = "A line editor that supports editing text file contents by specifying line ranges and content. It handles multiple patches in a single operation with hash-based conflict detection. IMPORTANT: (1) Before using this tool, you must first get the file's current hash using get_text_file_contents. (2) To avoid line number shifts affecting your patches, use get_text_file_contents to read the same ranges you plan to edit before making changes. (3) Patches must be specified from bottom to top to handle line number shifts correctly, as edits to lower lines don't affect the line numbers of higher lines. (4) To append content to a file, first get the total number of lines with get_text_file_contents, then specify a patch with line_start = total_lines + 1 and line_end = total_lines. This indicates an append operation and range_hash is not required. Similarly, range_hash is not required for new file creation."
     description = "A line editor that supports editing text file contents by specifying line ranges and content. It handles multiple patches in a single operation with hash-based conflict detection. IMPORTANT: (1) Before using this tool, you must first get the file's current hash using get_text_file_contents. (2) To avoid line number shifts affecting your patches, use get_text_file_contents to read the same ranges you plan to edit before making changes. (3) Patches must be specified from bottom to top to handle line number shifts correctly, as edits to lower lines don't affect the line numbers of higher lines. (4) To append content to a file, first get the total number of lines with get_text_file_contents, then specify a patch with line_start = total_lines + 1 and line_end = total_lines. This indicates an append operation and range_hash is not required. Similarly, range_hash is not required for new file creation."
 
     def __init__(self):

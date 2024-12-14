@@ -125,7 +125,7 @@ class TextEditor:
 
     async def read_multiple_ranges(
         self, ranges: List[FileRanges]
-    ) -> Dict[str, List[Dict[str, Any]]]:
+    ) -> Dict[str, Dict[str, Any]]:
         """
         Read multiple line ranges from multiple files.
 
@@ -133,26 +133,31 @@ class TextEditor:
             ranges (List[FileRanges]): List of files and their line ranges to read
 
         Returns:
-            Dict[str, List[Dict[str, Any]]]: Dictionary with file paths as keys and
-                lists of range contents as values. Each range content includes:
-                - content: str
-                - start_line: int
-                - end_line: int
-                - hash: str
-                - total_lines: int
-                - content_size: int
+            Dict[str, Dict[str, Any]]: Dictionary with file paths as keys and
+                file information as values. Each value includes:
+                - file_hash: str (Hash of the entire file)
+                - ranges: List of range information, each containing:
+                    - content: str
+                    - start_line: int
+                    - end_line: int
+                    - range_hash: str
+                    - total_lines: int
+                    - content_size: int
 
         Raises:
             ValueError: If file paths or line numbers are invalid
             FileNotFoundError: If any file does not exist
             IOError: If any file cannot be read
         """
-        result: Dict[str, List[Dict[str, Any]]] = {}
+        result: Dict[str, Dict[str, Any]] = {}
 
         for file_range in ranges:
             file_path = file_range["file_path"]
             self._validate_file_path(file_path)
-            result[file_path] = []
+            result[file_path] = {
+                "ranges": [],
+                "file_hash": ""
+            }
 
             try:
                 # Detect the file encoding before reading
@@ -163,6 +168,8 @@ class TextEditor:
                     total_lines = len(lines)
                     file_content = "".join(lines)
                     file_hash = self.calculate_hash(file_content)
+                    result[file_path]["file_hash"] = file_hash
+
                 for range_spec in file_range["ranges"]:
                     # Adjust line numbers to 0-based index
                     line_start = max(1, range_spec["start"]) - 1
@@ -181,29 +188,27 @@ class TextEditor:
                     if line_start >= total_lines:
                         # Return empty content for out of bounds start line
                         empty_content = ""
-                        result[file_path].append(
+                        result[file_path]["ranges"].append(
                             {
                                 "content": empty_content,
                                 "start_line": line_start + 1,
                                 "end_line": line_start + 1,
-                                "hash": file_hash,
                                 "range_hash": self.calculate_hash(empty_content),
                                 "total_lines": total_lines,
                                 "content_size": 0,
                             }
                         )
                         continue
-                        continue
+
                     selected_lines = lines[line_start:line_end]
                     content = "".join(selected_lines)
                     range_hash = self.calculate_hash(content)
 
-                    result[file_path].append(
+                    result[file_path]["ranges"].append(
                         {
                             "content": content,
                             "start_line": line_start + 1,
                             "end_line": line_end,
-                            "hash": file_hash,
                             "range_hash": range_hash,
                             "total_lines": total_lines,
                             "content_size": len(content),
@@ -243,28 +248,28 @@ class TextEditor:
 
             with open(file_path, "r", encoding=encoding) as f:
                 lines = f.readlines()
-            file_content = "".join(lines)
-            file_hash = self.calculate_hash(file_content)
             # Adjust line numbers to 0-based index
             line_start = max(1, line_start) - 1
             line_end = len(lines) if line_end is None else min(line_end, len(lines))
 
             if line_start >= len(lines):
-                return "", line_start, line_start, file_hash, len(lines), 0
+                empty_content = ""
+                empty_hash = self.calculate_hash(empty_content)
+                return empty_content, line_start, line_start, empty_hash, len(lines), 0
             if line_end < line_start:
                 raise ValueError("End line must be greater than or equal to start line")
-
             selected_lines = lines[line_start:line_end]
             content = "".join(selected_lines)
 
-            # 選択された行のオリジナルのバイトサイズを計算
+            # Calculate content hash and size
+            content_hash = self.calculate_hash(content)
             content_size = len(content.encode(encoding))
 
             return (
                 content,
                 line_start + 1,
                 line_end,
-                file_hash,
+                content_hash,
                 len(lines),
                 content_size,
             )
