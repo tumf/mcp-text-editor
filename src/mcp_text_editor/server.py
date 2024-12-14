@@ -76,15 +76,15 @@ class GetTextFileContentsHandler:
     async def run_tool(self, arguments: Dict[str, Any]) -> Sequence[TextContent]:
         """Execute the tool with given arguments."""
         try:
-            # Handle 'files' key missing
             if "files" not in arguments:
                 if "file_path" not in arguments:
                     raise RuntimeError("Missing required argument: 'files'")
 
-                # Convert legacy format to new format
+                # Legacy format support
                 file_path = arguments["file_path"]
                 line_start = arguments.get("line_start", 1)
                 line_end = arguments.get("line_end")
+                # Convert to new format with mandatory fields
                 arguments = {
                     "files": [
                         {
@@ -98,6 +98,7 @@ class GetTextFileContentsHandler:
                         }
                     ]
                 }
+                # Legacy format request
                 legacy_format = True
             else:
                 legacy_format = False
@@ -105,8 +106,9 @@ class GetTextFileContentsHandler:
             # Handle request
             result = await self.editor.read_multiple_ranges(arguments["files"])
 
-            # Convert to legacy format if it was a legacy request
+            # Convert to appropriate format based on request type
             if legacy_format:
+                # Legacy format expects a flat structure
                 file_path = arguments["files"][0]["file_path"]
                 file_result = result[file_path]
                 range_result = file_result["ranges"][0]
@@ -120,14 +122,15 @@ class GetTextFileContentsHandler:
                     "file_size": range_result["content_size"],
                 }
             else:
+                # New format returns multi-file, multi-range structure
                 response = result
 
             return [TextContent(type="text", text=json.dumps(response, indent=2))]
 
         except KeyError as e:
-            raise RuntimeError(f"Missing required argument: '{e}'")
+            raise RuntimeError(f"Missing required argument: '{e}'") from e
         except Exception as e:
-            raise RuntimeError(f"Error processing request: {str(e)}")
+            raise RuntimeError(f"Error processing request: {str(e)}") from e
 
 
 class EditTextFileContentsHandler:
