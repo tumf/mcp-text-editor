@@ -76,54 +76,13 @@ class GetTextFileContentsHandler:
     async def run_tool(self, arguments: Dict[str, Any]) -> Sequence[TextContent]:
         """Execute the tool with given arguments."""
         try:
+            # Check for required argument 'files'
             if "files" not in arguments:
-                if "file_path" not in arguments:
-                    raise RuntimeError("Missing required argument: 'files'")
-
-                # Legacy format support
-                file_path = arguments["file_path"]
-                line_start = arguments.get("line_start", 1)
-                line_end = arguments.get("line_end")
-                # Convert to new format with mandatory fields
-                arguments = {
-                    "files": [
-                        {
-                            "file_path": file_path,
-                            "ranges": [
-                                {
-                                    "start": line_start,
-                                    "end": line_end if line_end else None,
-                                }
-                            ],
-                        }
-                    ]
-                }
-                # Legacy format request
-                legacy_format = True
-            else:
-                legacy_format = False
+                raise RuntimeError("Missing required argument: 'files'")
 
             # Handle request
             result = await self.editor.read_multiple_ranges(arguments["files"])
-
-            # Convert to appropriate format based on request type
-            if legacy_format:
-                # Legacy format expects a flat structure
-                file_path = arguments["files"][0]["file_path"]
-                file_result = result[file_path]
-                range_result = file_result["ranges"][0]
-                response = {
-                    "file_path": file_path,
-                    "contents": range_result["content"],
-                    "line_start": range_result["start_line"],
-                    "line_end": range_result["end_line"],
-                    "file_hash": file_result["file_hash"],
-                    "file_lines": range_result["total_lines"],
-                    "file_size": range_result["content_size"],
-                }
-            else:
-                # New format returns multi-file, multi-range structure
-                response = result
+            response = result
 
             return [TextContent(type="text", text=json.dumps(response, indent=2))]
 

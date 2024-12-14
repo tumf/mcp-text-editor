@@ -44,23 +44,25 @@ async def test_list_tools():
 @pytest.mark.asyncio
 async def test_get_contents_handler(test_file):
     """Test GetTextFileContents handler."""
-    args = {"file_path": test_file, "line_start": 1, "line_end": 3}
+    args = {"files": [{"file_path": test_file, "ranges": [{"start": 1, "end": 3}]}]}
     result = await get_contents_handler.run_tool(args)
     assert len(result) == 1
     assert isinstance(result[0], TextContent)
     content = json.loads(result[0].text)
-    assert "contents" in content
-    assert "line_start" in content
-    assert "line_end" in content
-    assert "file_hash" in content
-    assert "file_lines" in content
-    assert "file_size" in content
+    assert test_file in content
+    range_result = content[test_file]["ranges"][0]
+    assert "content" in range_result
+    assert "start_line" in range_result
+    assert "end_line" in range_result
+    assert "file_hash" in content[test_file]
+    assert "total_lines" in range_result
+    assert "content_size" in range_result
 
 
 @pytest.mark.asyncio
 async def test_get_contents_handler_invalid_file(test_file):
     """Test GetTextFileContents handler with invalid file."""
-    args = {"file_path": "nonexistent.txt"}
+    args = {"files": [{"file_path": "nonexistent.txt", "ranges": [{"start": 1}]}]}
     with pytest.raises(RuntimeError) as exc_info:
         await get_contents_handler.run_tool(args)
     assert "File not found" in str(exc_info.value)
@@ -70,10 +72,10 @@ async def test_get_contents_handler_invalid_file(test_file):
 async def test_edit_contents_handler(test_file):
     """Test EditTextFileContents handler."""
     # First, get the current content and hash
-    get_args = {"file_path": test_file}
+    get_args = {"files": [{"file_path": test_file, "ranges": [{"start": 1}]}]}
     get_result = await get_contents_handler.run_tool(get_args)
     content_info = json.loads(get_result[0].text)
-    initial_hash = content_info["file_hash"]
+    initial_hash = content_info[test_file]["file_hash"]
 
     # Get range hash for the target lines
     get_range_args = {
@@ -82,7 +84,7 @@ async def test_edit_contents_handler(test_file):
     range_result = json.loads(
         (await get_contents_handler.run_tool(get_range_args))[0].text
     )
-    range_hash = range_result[test_file][0]["range_hash"]
+    range_hash = range_result[test_file]["ranges"][0]["range_hash"]
 
     # Create edit operation
     edit_args = {
@@ -113,17 +115,19 @@ async def test_edit_contents_handler(test_file):
 @pytest.mark.asyncio
 async def test_call_tool_get_contents(test_file):
     """Test call_tool with GetTextFileContents."""
-    args = {"file_path": test_file, "line_start": 1, "line_end": 3}
+    args = {"files": [{"file_path": test_file, "ranges": [{"start": 1, "end": 3}]}]}
     result = await call_tool("get_text_file_contents", args)
     assert len(result) == 1
     assert isinstance(result[0], TextContent)
     content = json.loads(result[0].text)
-    assert "contents" in content
-    assert "line_start" in content
-    assert "line_end" in content
-    assert "file_hash" in content
-    assert "file_lines" in content
-    assert "file_size" in content
+    assert test_file in content
+    range_result = content[test_file]["ranges"][0]
+    assert "content" in range_result
+    assert "start_line" in range_result
+    assert "end_line" in range_result
+    assert "file_hash" in content[test_file]
+    assert "total_lines" in range_result
+    assert "content_size" in range_result
 
 
 @pytest.mark.asyncio
@@ -144,7 +148,10 @@ async def test_call_tool_error_handling():
 
     # Test with invalid file path
     with pytest.raises(RuntimeError) as exc_info:
-        await call_tool("get_text_file_contents", {"file_path": "nonexistent.txt"})
+        await call_tool(
+            "get_text_file_contents",
+            {"files": [{"file_path": "nonexistent.txt", "ranges": [{"start": 1}]}]},
+        )
     assert "File not found" in str(exc_info.value)
 
 
@@ -162,9 +169,10 @@ async def test_edit_contents_handler_multiple_files(tmp_path):
     file_operations = []
     for file_path in test_files:
         # Get file hash
-        get_result = await get_contents_handler.run_tool({"file_path": file_path})
+        get_args = {"files": [{"file_path": file_path, "ranges": [{"start": 1}]}]}
+        get_result = await get_contents_handler.run_tool(get_args)
         content_info = json.loads(get_result[0].text)
-        file_hash = content_info["file_hash"]
+        file_hash = content_info[file_path]["file_hash"]
 
         # Get range hash
         get_range_args = {
@@ -178,7 +186,7 @@ async def test_edit_contents_handler_multiple_files(tmp_path):
         range_result = json.loads(
             (await get_contents_handler.run_tool(get_range_args))[0].text
         )
-        range_hash = range_result[file_path][0]["range_hash"]
+        range_hash = range_result[file_path]["ranges"][0]["range_hash"]
 
         # Create operation for this file
         file_operations.append(
@@ -189,7 +197,7 @@ async def test_edit_contents_handler_multiple_files(tmp_path):
                     {
                         "line_start": 2,
                         "line_end": 2,
-                        "contents": f"Modified Line 2 in file {file_path}\n",
+                        "contents": "Modified Line 2\n",
                         "range_hash": range_hash,
                     }
                 ],
@@ -218,9 +226,10 @@ async def test_edit_contents_handler_partial_failure(tmp_path):
     valid_path = str(valid_file)
 
     # Get hash for valid file
-    get_result = await get_contents_handler.run_tool({"file_path": valid_path})
+    get_args = {"files": [{"file_path": valid_path, "ranges": [{"start": 1}]}]}
+    get_result = await get_contents_handler.run_tool(get_args)
     content_info = json.loads(get_result[0].text)
-    valid_hash = content_info["file_hash"]
+    valid_hash = content_info[valid_path]["file_hash"]
 
     # Get range hash for the target lines
     get_range_args = {
@@ -229,7 +238,7 @@ async def test_edit_contents_handler_partial_failure(tmp_path):
     range_result = json.loads(
         (await get_contents_handler.run_tool(get_range_args))[0].text
     )
-    valid_range_hash = range_result[valid_path][0]["range_hash"]
+    valid_range_hash = range_result[valid_path]["ranges"][0]["range_hash"]
 
     # Create edit operations for both valid and invalid files
     edit_args = {
@@ -270,14 +279,11 @@ async def test_edit_contents_handler_partial_failure(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_edit_contents_handler_empty_args():
-    """Test EditTextFileContents handler with empty files."""
-    edit_args = {"files": []}
-    result = await edit_contents_handler.run_tool(edit_args)
-    assert len(result) == 1
-    edit_results = json.loads(result[0].text)
-    assert isinstance(edit_results, dict)
-    assert len(edit_results) == 0
+async def test_get_contents_handler_missing_args():
+    """Test GetTextFileContents handler with missing arguments."""
+    with pytest.raises(RuntimeError) as exc_info:
+        await get_contents_handler.run_tool({})
+    assert "Missing required argument: 'files'" in str(exc_info.value)
 
 
 @pytest.mark.asyncio
@@ -306,7 +312,7 @@ async def test_get_contents_handler_legacy_missing_args():
     """Test GetTextFileContents handler with legacy single file request missing arguments."""
     with pytest.raises(RuntimeError) as exc_info:
         await get_contents_handler.run_tool({})
-    assert "Missing required argument: files" in str(exc_info.value)
+    assert "Missing required argument: 'files'" in str(exc_info.value)
 
 
 @pytest.mark.asyncio

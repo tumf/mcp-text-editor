@@ -63,7 +63,7 @@ async def test_edit_file_contents(editor, test_file):
     # Read initial content and calculate hash
     ranges = [{"file_path": test_file, "ranges": [{"start": 2, "end": 3}]}]
     range_result = await editor.read_multiple_ranges(ranges)
-    target_range = range_result[test_file][0]
+    target_range = range_result[test_file]["ranges"][0]
     range_hash = target_range["range_hash"]
 
     content, _, _, initial_hash, _, _ = await editor.read_file_contents(test_file)
@@ -94,7 +94,7 @@ async def test_edit_file_contents_conflict(editor, test_file):
     # Get range hashes for the area we want to modify
     ranges = [{"file_path": test_file, "ranges": [{"start": 1, "end": 2}]}]
     range_result = await editor.read_multiple_ranges(ranges)
-    range_hash = range_result[test_file][0]["range_hash"]
+    range_hash = range_result[test_file]["ranges"][0]["range_hash"]
 
     # Read initial file hash
     _, _, _, initial_hash, _, _ = await editor.read_file_contents(test_file)
@@ -178,8 +178,8 @@ async def test_edit_file_contents_overlapping_patches(editor, test_file):
         }
     ]
     range_result = await editor.read_multiple_ranges(ranges)
-    range1_hash = range_result[test_file][0]["range_hash"]
-    range2_hash = range_result[test_file][1]["range_hash"]
+    range1_hash = range_result[test_file]["ranges"][0]["range_hash"]
+    range2_hash = range_result[test_file]["ranges"][1]["range_hash"]
 
     content, _, _, initial_hash, _, _ = await editor.read_file_contents(test_file)
 
@@ -225,8 +225,8 @@ async def test_edit_file_contents_multiple_patches(editor, tmp_path):
         }
     ]
     range_result = await editor.read_multiple_ranges(ranges)
-    range1_hash = range_result[str(test_file)][0]["range_hash"]
-    range2_hash = range_result[str(test_file)][1]["range_hash"]
+    range1_hash = range_result[str(test_file)]["ranges"][0]["range_hash"]
+    range2_hash = range_result[str(test_file)]["ranges"][1]["range_hash"]
 
     # Read initial content and hash
     content, _, _, initial_hash, _, _ = await editor.read_file_contents(str(test_file))
@@ -271,8 +271,8 @@ async def test_edit_file_contents_multiple_patches_different_orders(editor, tmp_
         ]
         range_result = await editor.read_multiple_ranges(ranges)
         return (
-            range_result[file_path][0]["range_hash"],
-            range_result[file_path][1]["range_hash"],
+            range_result[file_path]["ranges"][0]["range_hash"],
+            range_result[file_path]["ranges"][1]["range_hash"],
         )
 
     for test_number in range(1, 3):
@@ -335,8 +335,8 @@ async def test_edit_file_contents_complex_multiple_patches(editor, tmp_path):
         }
     ]
     range_result = await editor.read_multiple_ranges(ranges)
-    range1_hash = range_result[str(test_file)][0]["range_hash"]
-    range2_hash = range_result[str(test_file)][1]["range_hash"]
+    range1_hash = range_result[str(test_file)]["ranges"][0]["range_hash"]
+    range2_hash = range_result[str(test_file)]["ranges"][1]["range_hash"]
 
     # Read initial content and hash
     content, _, _, initial_hash, _, _ = await editor.read_file_contents(str(test_file))
@@ -374,7 +374,7 @@ async def test_edit_file_contents_complex_multiple_patches(editor, tmp_path):
     # Get range hash for line 2
     ranges = [{"file_path": str(test_file), "ranges": [{"start": 2, "end": 2}]}]
     range_result = await editor.read_multiple_ranges(ranges)
-    range_hash = range_result[str(test_file)][0]["range_hash"]
+    range_hash = range_result[str(test_file)]["ranges"][0]["range_hash"]
 
     # Read initial content and hash
     content, _, _, initial_hash, _, _ = await editor.read_file_contents(str(test_file))
@@ -415,14 +415,14 @@ async def test_read_multiple_ranges(editor, test_file):
     result = await editor.read_multiple_ranges(ranges)
 
     # Check first range (entire file)
-    first_range = result[test_file][0]
+    first_range = result[test_file]["ranges"][0]
     assert first_range["content"] == "Line 1\nLine 2\nLine 3\nLine 4\nLine 5\n"
     assert first_range["start_line"] == 1
     assert first_range["end_line"] == 5
     assert first_range["total_lines"] == 5
 
     # Check second range (specific lines)
-    second_range = result[test_file][1]
+    second_range = result[test_file]["ranges"][1]
     assert second_range["content"] == "Line 2\nLine 3\nLine 4\n"
     assert second_range["start_line"] == 2
     assert second_range["end_line"] == 4
@@ -444,7 +444,7 @@ async def test_read_multiple_ranges_out_of_bounds_start(editor, test_file):
     result = await editor.read_multiple_ranges(ranges)
 
     # Check first range (start line way beyond file end)
-    first_range = result[test_file][0]
+    first_range = result[test_file]["ranges"][0]
     assert first_range["content"] == ""
     assert first_range["start_line"] == 1000
     assert first_range["end_line"] == 1000
@@ -452,7 +452,7 @@ async def test_read_multiple_ranges_out_of_bounds_start(editor, test_file):
     assert first_range["content_size"] == 0
 
     # Check second range (start line just beyond file end)
-    second_range = result[test_file][1]
+    second_range = result[test_file]["ranges"][1]
     assert second_range["content"] == ""
     assert second_range["start_line"] == 6
     assert second_range["end_line"] == 6
@@ -476,7 +476,7 @@ async def test_read_multiple_ranges_out_of_bounds_end(editor, test_file):
     result = await editor.read_multiple_ranges(ranges)
 
     # Check first range (end line way beyond file end)
-    first_range = result[test_file][0]
+    first_range = result[test_file]["ranges"][0]
     assert first_range["content"] == "Line 1\nLine 2\nLine 3\nLine 4\nLine 5\n"
     assert first_range["start_line"] == 1
     assert first_range["end_line"] == 5
@@ -484,7 +484,7 @@ async def test_read_multiple_ranges_out_of_bounds_end(editor, test_file):
     assert first_range["content_size"] == len(first_range["content"])
 
     # Check second range (end line just beyond file end)
-    second_range = result[test_file][1]
+    second_range = result[test_file]["ranges"][1]
     assert second_range["content"] == "Line 2\nLine 3\nLine 4\nLine 5\n"
     assert second_range["start_line"] == 2
     assert second_range["end_line"] == 5
@@ -522,7 +522,7 @@ async def test_edit_file_contents_io_error(editor, tmp_path):
     # Get the range hash first
     ranges = [{"file_path": str(test_file), "ranges": [{"start": 1, "end": 1}]}]
     range_result = await editor.read_multiple_ranges(ranges)
-    range_hash = range_result[str(test_file)][0]["range_hash"]
+    range_hash = range_result[str(test_file)]["ranges"][0]["range_hash"]
 
     # Make file read-only
     test_file.chmod(0o444)
@@ -609,21 +609,26 @@ async def test_range_hash_calculation(editor, test_file):
     ranges_result = result[test_file]
 
     # Verify that each range has a range_hash
-    for range_data in ranges_result:
+    for range_data in ranges_result["ranges"]:
         assert "range_hash" in range_data, "range_hash should be present in results"
         assert isinstance(range_data["range_hash"], str)
         assert len(range_data["range_hash"]) == 64  # SHA-256 hash length
 
     # Verify that range_hash is different for different ranges
-    assert ranges_result[0]["range_hash"] != ranges_result[1]["range_hash"]
+    assert (
+        ranges_result["ranges"][0]["range_hash"]
+        != ranges_result["ranges"][1]["range_hash"]
+    )
 
     # Verify that range_hash remains consistent for same content
     repeat_result = await editor.read_multiple_ranges(ranges)
     assert (
-        result[test_file][0]["range_hash"] == repeat_result[test_file][0]["range_hash"]
+        result[test_file]["ranges"][0]["range_hash"]
+        == repeat_result[test_file]["ranges"][0]["range_hash"]
     )
     assert (
-        result[test_file][1]["range_hash"] == repeat_result[test_file][1]["range_hash"]
+        result[test_file]["ranges"][1]["range_hash"]
+        == repeat_result[test_file]["ranges"][1]["range_hash"]
     )
 
 

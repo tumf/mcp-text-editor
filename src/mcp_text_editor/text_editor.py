@@ -154,10 +154,7 @@ class TextEditor:
         for file_range in ranges:
             file_path = file_range["file_path"]
             self._validate_file_path(file_path)
-            result[file_path] = {
-                "ranges": [],
-                "file_hash": ""
-            }
+            result[file_path] = {"ranges": [], "file_hash": ""}
 
             try:
                 # Detect the file encoding before reading
