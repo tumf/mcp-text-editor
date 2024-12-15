@@ -164,3 +164,24 @@ def test_edit_file_contents_file_error(service):
     edit_result = result[file_path]
     assert edit_result.result == "error"
     assert "no such file" in edit_result.reason.lower()
+
+
+def test_edit_file_unexpected_error(service, tmp_path):
+    """Test handling of unexpected errors during file editing."""
+    # Setup test file and operation
+    test_file = str(tmp_path / "error_test.txt")
+    operation = EditFileOperation(
+        path=test_file,
+        hash="dummy_hash",
+        patches=[EditPatch(contents="test content\n", line_start=1)],
+    )
+
+    # Try to edit non-existent file
+    result = service.edit_file_contents(test_file, operation)
+    edit_result = result[test_file]
+
+    # Verify error handling
+    assert edit_result.result == "error"
+    assert "no such file" in edit_result.reason.lower()
+    assert edit_result.hash is None
+    assert edit_result.content is None
