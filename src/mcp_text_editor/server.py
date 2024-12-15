@@ -140,7 +140,7 @@ class EditTextFileContentsHandler:
                                             "contents": {"type": "string"},
                                             "range_hash": {
                                                 "type": "string",
-                                                "description": "Hash of the content being replaced (required except for new files and append operations)",
+                                                "description": "Hash of the content being replaced from line_start to line_end (required except for new files and append operations)",
                                             },
                                         },
                                         "required": ["contents"],
