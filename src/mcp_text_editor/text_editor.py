@@ -157,6 +157,10 @@ class TextEditor:
         lines, file_content, total_lines = await self._read_file(
             file_path, encoding=encoding
         )
+
+        if line_end is not None and line_end < line_start:
+            raise ValueError("End line must be greater than or equal to start line")
+
         line_start = max(1, line_start) - 1
         line_end = total_lines if line_end is None else min(line_end, total_lines)
 
@@ -245,22 +249,6 @@ class TextEditor:
                 current_content = ""
                 current_hash = ""
                 lines: List[str] = []
-                # Create parent directories if they don't exist
-                parent_dir = os.path.dirname(file_path)
-                if parent_dir:
-                    try:
-                        os.makedirs(parent_dir, exist_ok=True)
-                    except OSError as e:
-                        return {
-                            "result": "error",
-                            "reason": f"Failed to create directory: {str(e)}",
-                            "file_hash": None,
-                            "content": None,
-                        }
-                # Initialize empty state for new file creation
-                current_content = ""
-                current_hash = ""
-                lines = []
                 encoding = "utf-8"
             else:
                 # Read current file content and verify hash
@@ -274,6 +262,15 @@ class TextEditor:
                     current_hash = ""
                     lines = []
                 elif current_hash != expected_hash:
+                    lines = []
+                elif current_content and expected_hash == "":
+                    return {
+                        "result": "error",
+                        "reason": "Unexpected error",
+                        "file_hash": None,
+                        "content": None,
+                    }
+                elif current_hash != expected_hash:
                     return {
                         "result": "error",
                         "reason": "Hash mismatch - file has been modified",
@@ -281,7 +278,6 @@ class TextEditor:
                         "content": current_content,
                     }
                 else:
-                    # Convert content to lines for easier manipulation
                     lines = current_content.splitlines(keepends=True)
 
             # Sort patches from bottom to top to avoid line number shifts
@@ -318,17 +314,61 @@ class TextEditor:
                 # Get line numbers (1-based)
                 line_start = patch.get("line_start", 1)
                 line_end = patch.get("line_end", line_start)
-                expected_range_hash = patch.get("range_hash")
-                is_insertion = False if line_end is None else line_end < line_start
 
-                # Skip range_hash for new files, empty files and insertions
-                if not os.path.exists(file_path) or not current_content or is_insertion:
-                    expected_range_hash = self.calculate_hash("")
-                # For existing, non-empty files and non-insertions, range_hash is required
-                elif expected_range_hash is None:
+                # Check for invalid line range
+                if line_end is not None and line_end < line_start:
                     return {
                         "result": "error",
-                        "reason": "range_hash is required for each patch (except for new files and append operations)",
+                        "reason": "End line must be greater than or equal to start line",
+                        "file_hash": None,
+                        "content": current_content,
+                    }
+
+                # Handle unexpected empty hash for existing file
+                if (
+                    os.path.exists(file_path)
+                    and current_content
+                    and expected_hash == ""
+                ):
+                    return {
+                        "result": "error",
+                        "reason": "Unexpected error",
+                        "file_hash": None,
+                        "content": current_content,
+                    }
+
+                # Get expected hash for validation
+                expected_range_hash = patch.get("range_hash")
+
+                # Determine if this is an insertion operation
+                # Cases:
+                # 1. New file
+                # 2. Empty file
+                # 3. Empty range_hash (explicit insertion)
+                is_insertion = (
+                    not os.path.exists(file_path)
+                    or not current_content
+                    or expected_range_hash == ""
+                    or patch.get("range_hash") == self.calculate_hash("")
+                )
+
+                # Skip range_hash check for insertions
+                if is_insertion:
+                    expected_range_hash = ""
+
+                # For existing, non-empty files and non-insertions, range_hash is required
+                if is_insertion:
+                    expected_range_hash = ""
+
+                # For existing, non-empty files and non-insertions, range_hash is required
+                if not os.path.exists(file_path) or not current_content or is_insertion:
+                    expected_range_hash = ""
+
+                # For existing, non-empty files and non-insertions, range_hash is required
+                elif not expected_range_hash:
+                    return {
+                        "result": "error",
+                        "reason": "range_hash is required for each patch (except for new files and insertions)",
                         "hash": None,
                         "content": current_content,
                     }
@@ -336,21 +376,21 @@ class TextEditor:
                 # Handle insertion or replacement
                 if is_insertion:
                     target_content = ""  # For insertion, we verify empty content
+                    line_end = line_start  # For insertion operations
                 else:
                     # Convert to 0-based indexing for existing content
                     line_start_zero = line_start - 1
+                    line_end_zero = (
+                        len(lines)
+                        if line_end is None
+                        else min(line_end - 1, len(lines) - 1)
+                    )
 
                     # Calculate target content for hash verification
                     if line_start_zero >= len(lines):
                         target_content = ""
                     else:
-                        # If line_end is None, we read until the end of the file
-                        if line_end is None:
-                            target_lines = lines[line_start_zero:]
-                        else:
-                            # Adjust to 0-based indexing and make inclusive
-                            line_end_zero = min(line_end - 1, len(lines) - 1)
-                            target_lines = lines[line_start_zero : line_end_zero + 1]
+                        target_lines = lines[line_start_zero : line_end_zero + 1]
                         target_content = "".join(target_lines)
 
                 # Calculate actual range hash and verify only for non-insertions
@@ -359,34 +399,37 @@ class TextEditor:
                     return {
                         "result": "error",
                         "reason": f"Range hash mismatch for lines {line_start}-{line_end if line_end else len(lines)} ({actual_range_hash} != {expected_range_hash})",
-                        "hash": None,
+                        "file_hash": None,
                         "content": current_content,
                     }
 
-                # Convert to 0-based indexing for modification
-                line_start -= 1
-                if not is_insertion:
-                    # Handle line_end consistently with hash verification
-                    if line_end is None:
-                        # When line_end is None, replace until the end
-                        line_end = len(lines)
-                    else:
-                        line_end = min(line_end, len(lines))
+                # Convert to 0-based indexing
+                line_start = line_start - 1
 
-                # Apply the changes
+                # Calculate effective end line for operations
+                if is_insertion:
+                    effective_line_end = line_start
+                else:
+                    effective_line_end = (
+                        len(lines) if line_end is None else line_end - 1
+                    )
+
+                # Prepare new content
                 new_content = patch["contents"]
                 if not new_content.endswith("\n"):
                     new_content += "\n"
                 new_lines = new_content.splitlines(keepends=True)
 
+                # Apply changes depending on operation type
                 if is_insertion:
                     lines[line_start:line_start] = new_lines
                 else:
                     # For replacement, we replace the range
-                    lines[line_start:line_end] = new_lines
+                    effective_line_end = len(lines) if line_end is None else line_end
+                    lines[line_start:effective_line_end] = new_lines
 
                 print(f"patch: {patch}")
-                print(f"line_end: {line_end}")
+                print(f"is_insertion: {is_insertion}")
                 print(f"is_insertion: {is_insertion}")
 
             # Write the final content back to file
@@ -424,7 +467,7 @@ class TextEditor:
             print(f"Traceback:\n{traceback.format_exc()}")
             return {
                 "result": "error",
-                "reason": str(e),
+                "reason": "Unexpected error occurred",
                 "file_hash": None,
                 "content": None,
             }

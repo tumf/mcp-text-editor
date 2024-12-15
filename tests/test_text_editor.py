@@ -552,11 +552,11 @@ async def test_create_file_directory_creation_failure(editor, tmp_path, monkeypa
 
     # Attempt to create a new file
     result = await editor.edit_file_contents(
-        str(deep_path), 
+        str(deep_path),
         "",  # Empty hash for new file
         [
             {
-                "line_start": 1, 
+                "line_start": 1,
                 "contents": "test content\n",
             }
         ],
@@ -568,3 +568,140 @@ async def test_create_file_directory_creation_failure(editor, tmp_path, monkeypa
     assert "Permission denied" in result["reason"]
     assert result["file_hash"] is None
     assert result["content"] is None
+
+
+@pytest.mark.asyncio
+async def test_io_error_handling(editor, tmp_path, monkeypatch):
+    """Test handling of IO errors during file operations."""
+    test_file = tmp_path / "test.txt"
+    content = "test content\n"
+    test_file.write_text(content)
+
+    def mock_open(*args, **kwargs):
+        raise IOError("Test IO Error")
+
+    monkeypatch.setattr("builtins.open", mock_open)
+
+    result = await editor.edit_file_contents(
+        str(test_file),
+        "",
+        [{"line_start": 1, "contents": "new content\n"}],
+    )
+
+    assert result["result"] == "error"
+    assert "Error editing file" in result["reason"]
+    assert "Test IO Error" in result["reason"]
+
+
+@pytest.mark.asyncio
+async def test_exception_handling(editor, tmp_path, monkeypatch):
+    """Test handling of unexpected exceptions during file operations."""
+    test_file = tmp_path / "test.txt"
+
+    def mock_open(*args, **kwargs):
+        raise Exception("Unexpected error")
+
+    monkeypatch.setattr("builtins.open", mock_open)
+
+    result = await editor.edit_file_contents(
+        str(test_file),
+        "",
+        [{"line_start": 1, "contents": "new content\n"}],
+    )
+
+    assert result["result"] == "error"
+    assert "Unexpected error" in result["reason"]
+
+
+@pytest.mark.asyncio
+async def test_insert_operation(editor, tmp_path):
+    """Test file insertion operations."""
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("line1\nline2\nline3\n")
+
+    # Get file hash
+    content, _, _, file_hash, _, _ = await editor.read_file_contents(str(test_file))
+
+    # Test insertion operation (inserting at line 2)
+    result = await editor.edit_file_contents(
+        str(test_file),
+        file_hash,
+        [
+            {
+                "line_start": 2,
+                "line_end": None,
+                "contents": "new line\n",
+                "range_hash": editor.calculate_hash(""),
+            }
+        ],
+    )
+
+    assert result["result"] == "ok"
+    assert test_file.read_text() == "line1\nnew line\nline2\nline3\n"
+
+
+@pytest.mark.asyncio
+async def test_content_without_newline(editor, tmp_path):
+    """Test handling content without trailing newline."""
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("line1\nline2\nline3\n")
+
+    # Get file hash
+    content, _, _, file_hash, _, _ = await editor.read_file_contents(str(test_file))
+
+    # Update with content that doesn't have a trailing newline
+    result = await editor.edit_file_contents(
+        str(test_file),
+        file_hash,
+        [
+            {
+                "line_start": 2,
+                "line_end": 2,
+                "contents": "new line",  # No trailing newline
+                "range_hash": editor.calculate_hash("line2\n"),
+            }
+        ],
+    )
+
+    assert result["result"] == "ok"
+    assert test_file.read_text() == "line1\nnew line\nline3\n"
+    result = await editor.edit_file_contents(
+        str(test_file),
+        "",
+        [{"line_start": 1, "contents": "new content\n"}],
+    )
+
+    assert result["result"] == "error"
+    assert "Unexpected error" in result["reason"]
+
+
+@pytest.mark.asyncio
+async def test_invalid_line_range(editor, tmp_path):
+    """Test handling of invalid line range where end line is less than start line."""
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("line1\nline2\nline3\n")
+
+    # Try to read with invalid line range
+    with pytest.raises(ValueError) as excinfo:
+        await editor.read_file_contents(str(test_file), line_start=3, line_end=2)
+
+    assert "End line must be greater than or equal to start line" in str(excinfo.value)
+
+    # Try to edit with invalid line range
+    content, _, _, file_hash, _, _ = await editor.read_file_contents(str(test_file))
+
+    result = await editor.edit_file_contents(
+        str(test_file),
+        file_hash,
+        [
+            {
+                "line_start": 3,
+                "line_end": 2,
+                "contents": "new content\n",
+                "range_hash": editor.calculate_hash("line3\n"),
+            }
+        ],
+    )
+
+    assert result["result"] == "error"
+    assert "End line must be greater than or equal to start line" in result["reason"]
