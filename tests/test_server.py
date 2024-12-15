@@ -42,6 +42,19 @@ async def test_list_tools():
 
 
 @pytest.mark.asyncio
+async def test_edit_contents_empty_patches():
+    """Test editing file contents with empty patches list."""
+    request = {"files": [{"path": "test.txt", "file_hash": "hash123", "patches": []}]}
+
+    response = await edit_contents_handler.run_tool(request)
+    assert isinstance(response, list)
+    assert len(response) == 1
+    content = json.loads(response[0].text)
+    assert content["test.txt"]["result"] == "error"
+    assert content["test.txt"]["reason"] == "Empty patches list"
+
+
+@pytest.mark.asyncio
 async def test_get_contents_handler(test_file):
     """Test GetTextFileContents handler."""
     args = {"files": [{"file_path": test_file, "ranges": [{"start": 1, "end": 3}]}]}

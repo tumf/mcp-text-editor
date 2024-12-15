@@ -120,7 +120,7 @@ class TextEditorService:
                 file_path: EditResult(
                     result="error",
                     reason=str(e),
-                    hash=current_hash,
+                    hash=None,  # Don't return the current hash on error
                     content=None,
                 )
             }

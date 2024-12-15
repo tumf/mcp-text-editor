@@ -19,6 +19,14 @@ class FileRanges(TypedDict):
     ranges: List[Range]
 
 
+class EditPatch(TypedDict):
+    """Represents a patch to be applied to a file."""
+
+    contents: str
+    line_start: int
+    line_end: Optional[int]
+
+
 class TextEditor:
     """Handles text file operations with security checks and conflict detection."""
 
@@ -34,18 +42,21 @@ class TextEditor:
         # Future: Add environment validation if needed
         pass
 
-    def _validate_file_path(self, file_path: str) -> None:
+    def _validate_file_path(self, file_path: str | os.PathLike) -> None:
         """
         Validate if file path is allowed and secure.
 
         Args:
-            file_path (str): Path to validate
+            file_path (str | os.PathLike): Path to validate
 
         Raises:
             ValueError: If path is not allowed or contains dangerous patterns
         """
+        # Convert path to string for checking
+        path_str = str(file_path)
+
         # Check for dangerous patterns
-        if ".." in file_path:
+        if ".." in path_str:
             raise ValueError("Path traversal not allowed")
 
     @staticmethod
@@ -369,7 +380,7 @@ class TextEditor:
                     return {
                         "result": "error",
                         "reason": "range_hash is required for each patch (except for new files and insertions)",
-                        "hash": None,
+                        "file_hash": None,
                         "content": current_content,
                     }
 

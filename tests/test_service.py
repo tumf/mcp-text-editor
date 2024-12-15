@@ -1,5 +1,7 @@
 """Tests for core service logic."""
 
+import os
+
 import pytest
 
 from mcp_text_editor.models import EditFileOperation, EditPatch, EditResult
@@ -183,5 +185,76 @@ def test_edit_file_unexpected_error(service, tmp_path):
     # Verify error handling
     assert edit_result.result == "error"
     assert "no such file" in edit_result.reason.lower()
+    assert edit_result.hash is None
+    assert edit_result.content is None
+
+
+def test_edit_file_contents_permission_error(service, tmp_path):
+    """Test handling of permission errors during file editing."""
+    # Create test file
+    test_file = tmp_path / "general_error_test.txt"
+    test_content = "line1\nline2\nline3\n"
+    test_file.write_text(test_content)
+    file_path = str(test_file)
+
+    # Make the file read-only to cause a permission error
+    os.chmod(file_path, 0o444)
+
+    # Create edit operation
+    operation = EditFileOperation(
+        path=file_path,
+        hash=service.calculate_hash(test_content),
+        patches=[EditPatch(line_start=2, line_end=2, contents="new line2")],
+    )
+
+    # Attempt edit
+    result = service.edit_file_contents(file_path, operation)
+    edit_result = result[file_path]
+
+    assert edit_result.result == "error"
+    assert "permission denied" in edit_result.reason.lower()
+    assert edit_result.hash is None
+    assert edit_result.content is None
+
+    # Clean up
+    os.chmod(file_path, 0o644)
+
+
+def test_edit_file_contents_general_exception(service, mocker):
+    """Test handling of general exceptions during file editing."""
+    test_file = "test.txt"
+    operation = EditFileOperation(
+        path=test_file,
+        hash="hash123",
+        patches=[EditPatch(contents="new content", line_start=1)],
+    )
+
+    # Mock edit_file to raise an exception
+    # Create a test file
+    with open(test_file, "w") as f:
+        f.write("test content\n")
+
+    try:
+        # Mock os.path.exists to return True
+        mocker.patch("os.path.exists", return_value=True)
+        # Mock open to raise an exception
+        mocker.patch(
+            "builtins.open",
+            side_effect=Exception("Unexpected error during file operation"),
+        )
+
+        result = service.edit_file_contents(test_file, operation)
+        edit_result = result[test_file]
+
+        assert edit_result.result == "error"
+        assert "unexpected error" in edit_result.reason.lower()
+
+    finally:
+        # Clean up
+        import os
+
+        mocker.stopall()
+        if os.path.exists(test_file):
+            os.remove(test_file)
     assert edit_result.hash is None
     assert edit_result.content is None

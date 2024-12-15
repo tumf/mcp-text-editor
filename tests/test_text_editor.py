@@ -2,7 +2,7 @@
 
 import pytest
 
-from mcp_text_editor.text_editor import TextEditor
+from mcp_text_editor.text_editor import EditPatch, TextEditor
 
 
 @pytest.fixture
@@ -18,6 +18,38 @@ def test_file(tmp_path):
     content = "Line 1\nLine 2\nLine 3\nLine 4\nLine 5\n"
     file_path.write_text(content)
     return file_path
+
+
+@pytest.mark.asyncio
+async def test_directory_creation_error(editor, tmp_path, mocker):
+    """Test file creation when parent directory creation fails."""
+    test_dir = tmp_path / "test_dir"
+    test_file = test_dir / "test.txt"
+
+    # Mock os.makedirs to raise an OSError
+    mocker.patch("os.makedirs", side_effect=OSError("Permission denied"))
+
+    result = await editor.edit_file_contents(
+        str(test_file), "", [EditPatch(contents="test content\n")]
+    )
+
+    assert result["result"] == "error"
+    assert "Failed to create directory" in result["reason"]
+    assert result["file_hash"] is None
+
+
+@pytest.mark.asyncio
+async def test_missing_range_hash(editor, test_file):
+    """Test editing without required range hash."""
+    _, _, _, file_hash, _, _ = await editor.read_file_contents(test_file)
+
+    # Try to edit without range_hash
+    patches = [EditPatch(line_start=2, line_end=2, contents="New content\n")]
+    result = await editor.edit_file_contents(test_file, file_hash, patches)
+
+    assert result["result"] == "error"
+    assert "range_hash is required" in result["reason"].lower()
+    assert result["file_hash"] is None
 
 
 @pytest.fixture
