@@ -132,10 +132,12 @@ class EditTextFileContentsHandler:
                                             "line_start": {
                                                 "type": "integer",
                                                 "default": 1,
+                                                "description": "Starting line number (1-based). it should be matched with the start line number when get_text_file_contents is called.",
                                             },
                                             "line_end": {
                                                 "type": ["integer", "null"],
                                                 "default": None,
+                                                "description": "Ending line number (null for end of file). it should be matched with the end line number when get_text_file_contents is called.",
                                             },
                                             "contents": {"type": "string"},
                                             "range_hash": {
