@@ -2,29 +2,9 @@
 
 import hashlib
 import os
-from typing import Any, Dict, List, Optional, Tuple, TypedDict
+from typing import Any, Dict, List, Optional, Tuple
 
-
-class Range(TypedDict):
-    """Represents a line range in a file."""
-
-    start: int
-    end: Optional[int]
-
-
-class FileRanges(TypedDict):
-    """Represents a file and its line ranges."""
-
-    file_path: str
-    ranges: List[Range]
-
-
-class EditPatch(TypedDict):
-    """Represents a patch to be applied to a file."""
-
-    contents: str
-    line_start: int
-    line_end: Optional[int]
+from mcp_text_editor.models import EditPatch, FileRanges
 
 
 class TextEditor:
@@ -106,21 +86,22 @@ class TextEditor:
             ) from err
 
     async def read_multiple_ranges(
-        self, ranges: List[FileRanges], encoding: str = "utf-8"
+        self, ranges: List[Dict[str, Any]], encoding: str = "utf-8"
     ) -> Dict[str, Dict[str, Any]]:
         result: Dict[str, Dict[str, Any]] = {}
 
-        for file_range in ranges:
-            file_path = file_range["file_path"]
+        for file_range_dict in ranges:
+            file_range = FileRanges.model_validate(file_range_dict)
+            file_path = file_range.file_path
             lines, file_content, total_lines = await self._read_file(
                 file_path, encoding=encoding
             )
             file_hash = self.calculate_hash(file_content)
             result[file_path] = {"ranges": [], "file_hash": file_hash}
 
-            for range_spec in file_range["ranges"]:
-                line_start = max(1, range_spec["start"]) - 1
-                end_value = range_spec.get("end")
+            for range_spec in file_range.ranges:
+                line_start = max(1, range_spec.start) - 1
+                end_value = range_spec.end
                 line_end = (
                     min(total_lines, end_value)
                     if end_value is not None
@@ -209,8 +190,8 @@ class TextEditor:
         Args:
             file_path (str): Path to the file to edit
             expected_hash (str): Expected hash of the file before editing
-            patches (List[Dict[str, Any]]): List of patches to apply, each containing:
-                - line_start (int): Starting line number (1-based)
+            patches (List[EditPatch]): List of patches to apply
+                - line_start (int): Starting line number (1-based, optional, default: 1)
                 - line_end (Optional[int]): Ending line number (inclusive)
                 - contents (str): New content to insert
         Edit file contents with hash-based conflict detection and multiple patches (supporting new file creation).
@@ -291,12 +272,15 @@ class TextEditor:
                 else:
                     lines = current_content.splitlines(keepends=True)
 
+            # Convert patches to EditPatch objects
+            patch_objects = [EditPatch.model_validate(p) for p in patches]
+
             # Sort patches from bottom to top to avoid line number shifts
             sorted_patches = sorted(
-                patches,
+                patch_objects,
                 key=lambda x: (
-                    -(x.get("line_start", 1)),
-                    -(x.get("line_end", x.get("line_start", 1)) or float("inf")),
+                    -(x.line_start),
+                    -(x.line_end or x.line_start or float("inf")),
                 ),
             )
 
@@ -305,10 +289,10 @@ class TextEditor:
                 for j in range(i + 1, len(sorted_patches)):
                     patch1 = sorted_patches[i]
                     patch2 = sorted_patches[j]
-                    start1 = patch1.get("line_start", 1)
-                    end1 = patch1.get("line_end", start1)
-                    start2 = patch2.get("line_start", 1)
-                    end2 = patch2.get("line_end", start2)
+                    start1 = patch1.line_start
+                    end1 = patch1.line_end or start1
+                    start2 = patch2.line_start
+                    end2 = patch2.line_end or start2
 
                     if (start1 <= end2 and end1 >= start2) or (
                         start2 <= end1 and end2 >= start1
@@ -323,8 +307,14 @@ class TextEditor:
             # Apply patches
             for patch in sorted_patches:
                 # Get line numbers (1-based)
-                line_start = patch.get("line_start", 1)
-                line_end = patch.get("line_end", line_start)
+                line_start: int
+                line_end: Optional[int]
+                if isinstance(patch, EditPatch):
+                    line_start = patch.line_start
+                    line_end = patch.line_end
+                else:
+                    line_start = patch["line_start"] if "line_start" in patch else 1
+                    line_end = patch["line_end"] if "line_end" in patch else line_start
 
                 # Check for invalid line range
                 if line_end is not None and line_end < line_start:
@@ -348,100 +338,97 @@ class TextEditor:
                         "content": current_content,
                     }
 
-                # Get expected hash for validation
-                expected_range_hash = patch.get("range_hash")
-
-                # Determine if this is an insertion operation
-                # Cases:
-                # 1. New file
-                # 2. Empty file
-                # 3. Empty range_hash (explicit insertion)
-                is_insertion = (
-                    not os.path.exists(file_path)
-                    or not current_content
-                    or expected_range_hash == ""
-                    or patch.get("range_hash") == self.calculate_hash("")
+                # Calculate line ranges for zero-based indexing
+                line_start_zero = line_start - 1
+                line_end_zero = (
+                    len(lines) - 1
+                    if line_end is None
+                    else min(line_end - 1, len(lines) - 1)
                 )
 
-                # Skip range_hash check for insertions
-                if is_insertion:
-                    expected_range_hash = ""
-
-                # For existing, non-empty files and non-insertions, range_hash is required
-                if is_insertion:
-                    expected_range_hash = ""
-
-                # For existing, non-empty files and non-insertions, range_hash is required
-                if not os.path.exists(file_path) or not current_content or is_insertion:
-                    expected_range_hash = ""
-
-                # For existing, non-empty files and non-insertions, range_hash is required
-                elif not expected_range_hash:
-                    return {
-                        "result": "error",
-                        "reason": "range_hash is required for each patch (except for new files and insertions)",
-                        "file_hash": None,
-                        "content": current_content,
-                    }
-
-                # Handle insertion or replacement
-                if is_insertion:
-                    target_content = ""  # For insertion, we verify empty content
-                    line_end = line_start  # For insertion operations
+                # Get expected hash for validation
+                expected_range_hash = None
+                if isinstance(patch, dict):
+                    expected_range_hash = patch.get("range_hash")
                 else:
-                    # Convert to 0-based indexing for existing content
-                    line_start_zero = line_start - 1
-                    line_end_zero = (
-                        len(lines)
-                        if line_end is None
-                        else min(line_end - 1, len(lines) - 1)
+                    # For EditPatch objects, use model fields
+                    expected_range_hash = patch.range_hash
+
+                # Determine operation type and validate hash requirements
+                if not os.path.exists(file_path) or not current_content:
+                    # New file or empty file - treat as insertion
+                    is_insertion = True
+                else:
+                    # For existing files:
+                    # range_hash is required for all modifications
+                    if not expected_range_hash:
+                        return {
+                            "result": "error",
+                            "reason": "range_hash is required for file modifications",
+                            "file_hash": None,
+                            "content": current_content,
+                        }
+
+                    # Hash provided - verify content
+                    target_lines = lines[line_start_zero : line_end_zero + 1]
+                    target_content = "".join(target_lines)
+                    actual_range_hash = self.calculate_hash(target_content)
+
+                    # Debug output for hash comparison
+                    print(
+                        f"Debug - Range hash comparison:"
+                        f"\nExpected: {expected_range_hash}"
+                        f"\nActual: {actual_range_hash}"
+                        f"\nContent: {target_content!r}"
+                        f"\nRange: {line_start_zero}:{line_end_zero + 1}"
                     )
 
-                    # Calculate target content for hash verification
-                    if line_start_zero >= len(lines):
-                        target_content = ""
-                    else:
-                        target_lines = lines[line_start_zero : line_end_zero + 1]
-                        target_content = "".join(target_lines)
-
-                # Calculate actual range hash and verify only for non-insertions
-                actual_range_hash = self.calculate_hash(target_content)
-                if not is_insertion and actual_range_hash != expected_range_hash:
-                    return {
-                        "result": "error",
-                        "reason": f"Range hash mismatch for lines {line_start}-{line_end if line_end else len(lines)} ({actual_range_hash} != {expected_range_hash})",
-                        "file_hash": None,
-                        "content": current_content,
-                    }
-
-                # Convert to 0-based indexing
-                line_start = line_start - 1
-
-                # Calculate effective end line for operations
-                if is_insertion:
-                    effective_line_end = line_start
-                else:
-                    effective_line_end = (
-                        len(lines) if line_end is None else line_end - 1
+                    # Compare hashes
+                    # Empty range_hash means explicit insertion
+                    is_insertion = (
+                        not expected_range_hash
+                        or expected_range_hash == self.calculate_hash("")
                     )
+
+                    # For non-insertion operations, verify content hash
+                    if not is_insertion:
+                        if actual_range_hash != expected_range_hash:
+                            print(
+                                f"Debug - Hash mismatch:\n"
+                                f"Expected hash: {expected_range_hash}\n"
+                                f"Actual hash: {actual_range_hash}\n"
+                                f"Content being replaced: {target_content!r}\n"
+                                f"Range: {line_start_zero}:{line_end_zero + 1}"
+                            )
+                            return {
+                                "result": "error",
+                                "reason": "Content hash mismatch - file has been modified",
+                                "file_hash": None,
+                                "content": current_content,
+                            }
 
                 # Prepare new content
-                new_content = patch["contents"]
-                if not new_content.endswith("\n"):
-                    new_content += "\n"
+                contents: str
+                if isinstance(patch, EditPatch):
+                    contents = patch.contents
+                else:
+                    contents = patch["contents"]
+
+                new_content = contents if contents.endswith("\n") else contents + "\n"
                 new_lines = new_content.splitlines(keepends=True)
 
-                # Apply changes depending on operation type
+                # Apply changes - line ranges were calculated earlier
                 if is_insertion:
-                    lines[line_start:line_start] = new_lines
+                    # Insert at the specified line
+                    lines[line_start_zero:line_start_zero] = new_lines
                 else:
-                    # For replacement, we replace the range
-                    effective_line_end = len(lines) if line_end is None else line_end
-                    lines[line_start:effective_line_end] = new_lines
+                    # Replace the specified range
+                    lines[line_start_zero : line_end_zero + 1] = new_lines
 
-                print(f"patch: {patch}")
-                print(f"is_insertion: {is_insertion}")
-                print(f"is_insertion: {is_insertion}")
+                # Debug output - shows the operation type
+                print(
+                    f"Applied patch: line_start={line_start} line_end={line_end} is_insertion={is_insertion} contents={patch.contents!r}"
+                )
 
             # Write the final content back to file
             final_content = "".join(lines)

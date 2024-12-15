@@ -28,6 +28,9 @@ class EditPatch(BaseModel):
     line_start: int = Field(1, description="Starting line for edit")
     line_end: Optional[int] = Field(None, description="Ending line for edit")
     contents: str = Field(..., description="New content to insert")
+    range_hash: Optional[str] = Field(
+        None, description="Hash of content being replaced. None for insertions"
+    )
 
 
 class EditFileOperation(BaseModel):
