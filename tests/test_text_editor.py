@@ -536,3 +536,35 @@ async def test_read_file_contents_with_start_beyond_total(editor, tmp_path):
     assert content_hash == editor.calculate_hash("")
     assert total_lines == 3
     assert content_size == 0
+
+
+@pytest.mark.asyncio
+async def test_create_file_directory_creation_failure(editor, tmp_path, monkeypatch):
+    """Test handling of directory creation failure when creating a new file."""
+    # Create a path with multiple nested directories
+    deep_path = tmp_path / "deeply" / "nested" / "path" / "test.txt"
+
+    # Mock os.makedirs to raise an OSError
+    def mock_makedirs(*args, **kwargs):
+        raise OSError("Permission denied")
+
+    monkeypatch.setattr("os.makedirs", mock_makedirs)
+
+    # Attempt to create a new file
+    result = await editor.edit_file_contents(
+        str(deep_path), 
+        "",  # Empty hash for new file
+        [
+            {
+                "line_start": 1, 
+                "contents": "test content\n",
+            }
+        ],
+    )
+
+    # Verify proper error handling
+    assert result["result"] == "error"
+    assert "Failed to create directory" in result["reason"]
+    assert "Permission denied" in result["reason"]
+    assert result["file_hash"] is None
+    assert result["content"] is None
