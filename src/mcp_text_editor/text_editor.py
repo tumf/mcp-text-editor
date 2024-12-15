@@ -123,158 +123,96 @@ class TextEditor:
         """
         return hashlib.sha256(content.encode()).hexdigest()
 
+    async def _read_file(self, file_path: str) -> Tuple[List[str], str, int]:
+        """Read file and return lines, content, and total lines."""
+        self._validate_file_path(file_path)
+        encoding = self._detect_encoding(file_path)
+        try:
+            with open(file_path, "r", encoding=encoding) as f:
+                lines = f.readlines()
+            file_content = "".join(lines)
+            return lines, file_content, len(lines)
+        except FileNotFoundError as err:
+            raise FileNotFoundError(f"File not found: {file_path}") from err
+
     async def read_multiple_ranges(
         self, ranges: List[FileRanges]
     ) -> Dict[str, Dict[str, Any]]:
-        """
-        Read multiple line ranges from multiple files.
-
-        Args:
-            ranges (List[FileRanges]): List of files and their line ranges to read
-
-        Returns:
-            Dict[str, Dict[str, Any]]: Dictionary with file paths as keys and
-                file information as values. Each value includes:
-                - file_hash: str (Hash of the entire file)
-                - ranges: List of range information, each containing:
-                    - content: str
-                    - start_line: int
-                    - end_line: int
-                    - range_hash: str
-                    - total_lines: int
-                    - content_size: int
-
-        Raises:
-            ValueError: If file paths or line numbers are invalid
-            FileNotFoundError: If any file does not exist
-            IOError: If any file cannot be read
-        """
         result: Dict[str, Dict[str, Any]] = {}
 
         for file_range in ranges:
             file_path = file_range["file_path"]
-            self._validate_file_path(file_path)
-            result[file_path] = {"ranges": [], "file_hash": ""}
+            lines, file_content, total_lines = await self._read_file(file_path)
+            file_hash = self.calculate_hash(file_content)
+            result[file_path] = {"ranges": [], "file_hash": file_hash}
 
-            try:
-                # Detect the file encoding before reading
-                encoding = self._detect_encoding(file_path)
+            for range_spec in file_range["ranges"]:
+                line_start = max(1, range_spec["start"]) - 1
+                end_value = range_spec.get("end")
+                line_end = (
+                    min(total_lines, end_value)
+                    if end_value is not None
+                    else total_lines
+                )
 
-                with open(file_path, "r", encoding=encoding) as f:
-                    lines = f.readlines()
-                    total_lines = len(lines)
-                    file_content = "".join(lines)
-                    file_hash = self.calculate_hash(file_content)
-                    result[file_path]["file_hash"] = file_hash
-
-                for range_spec in file_range["ranges"]:
-                    # Adjust line numbers to 0-based index
-                    line_start = max(1, range_spec["start"]) - 1
-                    end_value = range_spec.get("end")
-                    line_end = (
-                        min(total_lines, end_value)
-                        if end_value is not None
-                        else total_lines
-                    )
-                    line_end = (
-                        total_lines
-                        if end_value is None
-                        else min(end_value, total_lines)
-                    )
-
-                    if line_start >= total_lines:
-                        # Return empty content for out of bounds start line
-                        empty_content = ""
-                        result[file_path]["ranges"].append(
-                            {
-                                "content": empty_content,
-                                "start_line": line_start + 1,
-                                "end_line": line_start + 1,
-                                "range_hash": self.calculate_hash(empty_content),
-                                "total_lines": total_lines,
-                                "content_size": 0,
-                            }
-                        )
-                        continue
-
-                    selected_lines = lines[line_start:line_end]
-                    content = "".join(selected_lines)
-                    range_hash = self.calculate_hash(content)
-
+                if line_start >= total_lines:
+                    empty_content = ""
                     result[file_path]["ranges"].append(
                         {
-                            "content": content,
+                            "content": empty_content,
                             "start_line": line_start + 1,
-                            "end_line": line_end,
-                            "range_hash": range_hash,
+                            "end_line": line_start + 1,
+                            "range_hash": self.calculate_hash(empty_content),
                             "total_lines": total_lines,
-                            "content_size": len(content),
+                            "content_size": 0,
                         }
                     )
-            except FileNotFoundError as e:
-                raise FileNotFoundError(f"File not found: {file_path}") from e
-            except IOError as e:
-                raise IOError(f"Error reading file: {str(e)}") from e
+                    continue
+
+                selected_lines = lines[line_start:line_end]
+                content = "".join(selected_lines)
+                range_hash = self.calculate_hash(content)
+
+                result[file_path]["ranges"].append(
+                    {
+                        "content": content,
+                        "start_line": line_start + 1,
+                        "end_line": line_end,
+                        "range_hash": range_hash,
+                        "total_lines": total_lines,
+                        "content_size": len(content),
+                    }
+                )
 
         return result
 
     async def read_file_contents(
         self, file_path: str, line_start: int = 1, line_end: Optional[int] = None
     ) -> Tuple[str, int, int, str, int, int]:
-        """
-        Read file contents within specified line range.
+        lines, file_content, total_lines = await self._read_file(file_path)
+        line_start = max(1, line_start) - 1
+        line_end = total_lines if line_end is None else min(line_end, total_lines)
 
-        Args:
-            file_path (str): Path to the file
-            line_start (int): Starting line number (1-based)
-            line_end (Optional[int]): Ending line number (inclusive)
+        if line_start >= total_lines:
+            empty_content = ""
+            empty_hash = self.calculate_hash(empty_content)
+            return empty_content, line_start, line_start, empty_hash, total_lines, 0
+        if line_end < line_start:
+            raise ValueError("End line must be greater than or equal to start line")
 
-        Returns:
-            Tuple[str, int, int, str, int, int]: (contents, start_line, end_line, hash, file_lines, file_size)
+        selected_lines = lines[line_start:line_end]
+        content = "".join(selected_lines)
+        content_hash = self.calculate_hash(content)
+        content_size = len(content.encode(self._detect_encoding(file_path)))
 
-        Raises:
-            ValueError: If file path or line numbers are invalid
-            FileNotFoundError: If file does not exist
-            IOError: If file cannot be read
-        """
-        self._validate_file_path(file_path)
-
-        try:
-            # Detect the file encoding before reading
-            encoding = self._detect_encoding(file_path)
-
-            with open(file_path, "r", encoding=encoding) as f:
-                lines = f.readlines()
-            # Adjust line numbers to 0-based index
-            line_start = max(1, line_start) - 1
-            line_end = len(lines) if line_end is None else min(line_end, len(lines))
-
-            if line_start >= len(lines):
-                empty_content = ""
-                empty_hash = self.calculate_hash(empty_content)
-                return empty_content, line_start, line_start, empty_hash, len(lines), 0
-            if line_end < line_start:
-                raise ValueError("End line must be greater than or equal to start line")
-            selected_lines = lines[line_start:line_end]
-            content = "".join(selected_lines)
-
-            # Calculate content hash and size
-            content_hash = self.calculate_hash(content)
-            content_size = len(content.encode(encoding))
-
-            return (
-                content,
-                line_start + 1,
-                line_end,
-                content_hash,
-                len(lines),
-                content_size,
-            )
-
-        except FileNotFoundError as e:
-            raise FileNotFoundError(f"File not found: {file_path}") from e
-        except (IOError, UnicodeDecodeError) as e:
-            raise IOError(f"Error reading file: {str(e)}") from e
+        return (
+            content,
+            line_start + 1,
+            line_end,
+            content_hash,
+            total_lines,
+            content_size,
+        )
 
     async def edit_file_contents(
         self, file_path: str, expected_hash: str, patches: List[Dict[str, Any]]
