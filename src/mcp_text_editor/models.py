@@ -80,3 +80,21 @@ class EditTextFileContentsRequest(BaseModel):
     """
 
     files: List[EditFileOperation] = Field(..., description="List of file operations")
+
+
+class FileRange(BaseModel):
+    """Represents a line range in a file."""
+
+    start: int = Field(..., description="Starting line number (1-based)")
+    end: Optional[int] = Field(
+        None, description="Ending line number (null for end of file)"
+    )
+
+
+class FileRanges(BaseModel):
+    """Represents a file and its line ranges."""
+
+    file_path: str = Field(..., description="Path to the text file")
+    ranges: List[FileRange] = Field(
+        ..., description="List of line ranges to read from the file"
+    )

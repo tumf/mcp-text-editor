@@ -8,6 +8,8 @@ from mcp_text_editor.models import (
     EditPatch,
     EditResult,
     EditTextFileContentsRequest,
+    FileRange,
+    FileRanges,
     GetTextFileContentsRequest,
     GetTextFileContentsResponse,
 )
@@ -186,3 +188,43 @@ def test_edit_result_to_dict():
         "hash": "currenthash123",
         "content": "current content",
     }
+
+
+def test_file_range():
+    """Test FileRange model."""
+    # Test with only required field
+    range_ = FileRange(start=1)
+    assert range_.start == 1
+    assert range_.end is None  # Default value
+
+    # Test with all fields
+    range_ = FileRange(start=5, end=10)
+    assert range_.start == 5
+    assert range_.end == 10
+
+    # Test validation error - missing required field
+    with pytest.raises(ValidationError):
+        FileRange()
+
+
+def test_file_ranges():
+    """Test FileRanges model."""
+    ranges = [
+        FileRange(start=1),
+        FileRange(start=5, end=10),
+    ]
+    file_ranges = FileRanges(file_path="/path/to/file.txt", ranges=ranges)
+    assert file_ranges.file_path == "/path/to/file.txt"
+    assert len(file_ranges.ranges) == 2
+    assert file_ranges.ranges[0].start == 1
+    assert file_ranges.ranges[0].end is None
+    assert file_ranges.ranges[1].start == 5
+    assert file_ranges.ranges[1].end == 10
+
+    # Test validation error - missing required fields
+    with pytest.raises(ValidationError):
+        FileRanges()
+
+    # Test validation error - invalid ranges type
+    with pytest.raises(ValidationError):
+        FileRanges(file_path="/path/to/file.txt", ranges="invalid")
