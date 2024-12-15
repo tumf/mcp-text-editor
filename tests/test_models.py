@@ -158,3 +158,31 @@ def test_edit_text_file_contents_request():
     # Test validation error - missing required field
     with pytest.raises(ValidationError):
         EditTextFileContentsRequest()
+
+
+def test_edit_result_to_dict():
+    """Test EditResult's to_dict method."""
+    # Test successful result
+    result = EditResult(result="ok", hash="newhash123")
+    result_dict = result.to_dict()
+    assert result_dict == {
+        "result": "ok",
+        "hash": "newhash123",
+        "reason": None,
+        "content": None,
+    }
+
+    # Test error result
+    result = EditResult(
+        result="error",
+        reason="hash mismatch",
+        hash="currenthash123",
+        content="current content",
+    )
+    result_dict = result.to_dict()
+    assert result_dict == {
+        "result": "error",
+        "reason": "hash mismatch",
+        "hash": "currenthash123",
+        "content": "current content",
+    }
