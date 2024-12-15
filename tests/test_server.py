@@ -382,3 +382,14 @@ async def test_main_run_error(mocker: MockerFixture):
     with pytest.raises(Exception) as exc_info:
         await main()
     assert "App run error" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_edit_contents_handler_missing_patches():
+    """Test EditTextFileContents handler with missing patches field."""
+    edit_args = {"files": [{"path": "test.txt", "file_hash": "any_hash"}]}
+
+    result = await edit_contents_handler.run_tool(edit_args)
+    edit_results = json.loads(result[0].text)
+    assert edit_results["test.txt"]["result"] == "error"
+    assert "Missing required field: patches" in edit_results["test.txt"]["reason"]
