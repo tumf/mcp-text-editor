@@ -48,68 +48,6 @@ class TextEditor:
         if ".." in file_path:
             raise ValueError("Path traversal not allowed")
 
-    def _detect_encoding(self, file_path: str) -> str:
-        """
-        Detect file encoding with Shift-JIS prioritized.
-
-        Args:
-            file_path (str): Path to the file
-
-        Returns:
-            str: Detected encoding, falls back to utf-8 if detection fails.
-        """
-
-        def try_decode(data: bytes, encoding: str) -> bool:
-            """Try to decode data with the given encoding."""
-            try:
-                data.decode(encoding)
-                return True
-            except UnicodeDecodeError:
-                return False
-
-        # Read file content for encoding detection
-        try:
-            with open(file_path, "rb") as f:
-                raw_data = f.read()
-
-                # Try encodings in order of priority
-                if try_decode(raw_data, "shift_jis"):
-                    return "shift_jis"
-                if try_decode(raw_data, "utf-8"):
-                    return "utf-8"
-
-                # As a last resort, use chardet
-                try:
-                    import chardet
-
-                    result = chardet.detect(raw_data)
-                    encoding = result.get("encoding") or ""
-                    encoding = encoding.lower()
-
-                    if encoding:
-                        # Map encoding aliases
-                        if encoding in [
-                            "shift_jis",
-                            "shift-jis",
-                            "shiftjis",
-                            "sjis",
-                            "csshiftjis",
-                        ]:
-                            return "shift_jis"
-                        if encoding in ["ascii"]:
-                            return "utf-8"
-                        # Try detected encoding
-                        if try_decode(raw_data, encoding):
-                            return encoding
-                except ImportError:
-                    pass
-
-                # Fall back to UTF-8
-                return "utf-8"
-
-        except (IOError, OSError, UnicodeDecodeError):
-            return "utf-8"
-
     @staticmethod
     def calculate_hash(content: str) -> str:
         """
@@ -123,10 +61,23 @@ class TextEditor:
         """
         return hashlib.sha256(content.encode()).hexdigest()
 
-    async def _read_file(self, file_path: str) -> Tuple[List[str], str, int]:
-        """Read file and return lines, content, and total lines."""
+    async def _read_file(
+        self, file_path: str, encoding: str = "utf-8"
+    ) -> Tuple[List[str], str, int]:
+        """Read file and return lines, content, and total lines.
+
+        Args:
+            file_path (str): Path to the file to read
+            encoding (str, optional): File encoding. Defaults to "utf-8"
+
+        Returns:
+            Tuple[List[str], str, int]: Lines, content, and total line count
+
+        Raises:
+            FileNotFoundError: If file not found
+            UnicodeDecodeError: If file cannot be decoded with specified encoding
+        """
         self._validate_file_path(file_path)
-        encoding = self._detect_encoding(file_path)
         try:
             with open(file_path, "r", encoding=encoding) as f:
                 lines = f.readlines()
@@ -134,15 +85,25 @@ class TextEditor:
             return lines, file_content, len(lines)
         except FileNotFoundError as err:
             raise FileNotFoundError(f"File not found: {file_path}") from err
+        except UnicodeDecodeError as err:
+            raise UnicodeDecodeError(
+                encoding,
+                err.object,
+                err.start,
+                err.end,
+                f"Failed to decode file '{file_path}' with {encoding} encoding",
+            ) from err
 
     async def read_multiple_ranges(
-        self, ranges: List[FileRanges]
+        self, ranges: List[FileRanges], encoding: str = "utf-8"
     ) -> Dict[str, Dict[str, Any]]:
         result: Dict[str, Dict[str, Any]] = {}
 
         for file_range in ranges:
             file_path = file_range["file_path"]
-            lines, file_content, total_lines = await self._read_file(file_path)
+            lines, file_content, total_lines = await self._read_file(
+                file_path, encoding=encoding
+            )
             file_hash = self.calculate_hash(file_content)
             result[file_path] = {"ranges": [], "file_hash": file_hash}
 
@@ -187,9 +148,15 @@ class TextEditor:
         return result
 
     async def read_file_contents(
-        self, file_path: str, line_start: int = 1, line_end: Optional[int] = None
+        self,
+        file_path: str,
+        line_start: int = 1,
+        line_end: Optional[int] = None,
+        encoding: str = "utf-8",
     ) -> Tuple[str, int, int, str, int, int]:
-        lines, file_content, total_lines = await self._read_file(file_path)
+        lines, file_content, total_lines = await self._read_file(
+            file_path, encoding=encoding
+        )
         line_start = max(1, line_start) - 1
         line_end = total_lines if line_end is None else min(line_end, total_lines)
 
@@ -203,7 +170,7 @@ class TextEditor:
         selected_lines = lines[line_start:line_end]
         content = "".join(selected_lines)
         content_hash = self.calculate_hash(content)
-        content_size = len(content.encode(self._detect_encoding(file_path)))
+        content_size = len(content.encode(encoding))
 
         return (
             content,
@@ -215,7 +182,11 @@ class TextEditor:
         )
 
     async def edit_file_contents(
-        self, file_path: str, expected_hash: str, patches: List[Dict[str, Any]]
+        self,
+        file_path: str,
+        expected_hash: str,
+        patches: List[Dict[str, Any]],
+        encoding: str = "utf-8",
     ) -> Dict[str, Any]:
         """
         Edit file contents with hash-based conflict detection and multiple patches.
@@ -294,7 +265,7 @@ class TextEditor:
             else:
                 # Read current file content and verify hash
                 current_content, _, _, current_hash, total_lines, _ = (
-                    await self.read_file_contents(file_path)
+                    await self.read_file_contents(file_path, encoding=encoding)
                 )
 
                 if current_hash != expected_hash:
@@ -400,11 +371,6 @@ class TextEditor:
 
             # Write the final content back to file
             final_content = "".join(lines)
-            encoding = (
-                "utf-8"
-                if not os.path.exists(file_path)
-                else self._detect_encoding(file_path)
-            )
             with open(file_path, "w", encoding=encoding) as f:
                 f.write(final_content)
 

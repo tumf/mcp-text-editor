@@ -67,7 +67,12 @@ class GetTextFileContentsHandler:
                             },
                             "required": ["file_path", "ranges"],
                         },
-                    }
+                    },
+                    "encoding": {
+                        "type": "string",
+                        "description": "Text encoding (default: 'utf-8')",
+                        "default": "utf-8",
+                    },
                 },
                 "required": ["files"],
             },
@@ -81,7 +86,10 @@ class GetTextFileContentsHandler:
                 raise RuntimeError("Missing required argument: 'files'")
 
             # Handle request
-            result = await self.editor.read_multiple_ranges(arguments["files"])
+            encoding = arguments.get("encoding", "utf-8")
+            result = await self.editor.read_multiple_ranges(
+                arguments["files"], encoding=encoding
+            )
             response = result
 
             return [TextContent(type="text", text=json.dumps(response, indent=2))]
@@ -130,6 +138,10 @@ class EditTextFileContentsHandler:
                                                 "default": None,
                                             },
                                             "contents": {"type": "string"},
+                                            "range_hash": {
+                                                "type": "string",
+                                                "description": "Hash of the content being replaced (required except for new files and append operations)",
+                                            },
                                         },
                                         "required": ["contents"],
                                     },
@@ -137,7 +149,12 @@ class EditTextFileContentsHandler:
                             },
                             "required": ["path", "file_hash", "patches"],
                         },
-                    }
+                    },
+                    "encoding": {
+                        "type": "string",
+                        "description": "Text encoding (default: 'utf-8')",
+                        "default": "utf-8",
+                    },
                 },
                 "required": ["files"],
             },
@@ -189,8 +206,9 @@ class EditTextFileContentsHandler:
                         }
                         continue
 
+                    encoding = arguments.get("encoding", "utf-8")
                     result = await self.editor.edit_file_contents(
-                        file_path, file_hash, patches
+                        file_path, file_hash, patches, encoding=encoding
                     )
                     results[file_path] = result
                 except Exception as e:
