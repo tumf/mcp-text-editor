@@ -298,7 +298,6 @@ dev = [
     { name = "ruff" },
 ]
 test = [
-    { name = "chardet" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -311,7 +310,6 @@ requires-dist = [
     { name = "asyncio", specifier = ">=3.4.3" },
     { name = "black", marker = "extra == 'dev'", specifier = ">=23.3.0" },
     { name = "chardet", specifier = ">=5.2.0" },
-    { name = "chardet", marker = "extra == 'test'", specifier = ">=5.2.0" },
     { name = "isort", marker = "extra == 'dev'", specifier = ">=5.12.0" },
     { name = "mcp", specifier = ">=1.1.2" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.2.0" },

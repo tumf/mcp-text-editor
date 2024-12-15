@@ -91,3 +91,448 @@ async def test_encoding_error(editor, test_invalid_encoding_file):
     assert result["result"] == "error"
     assert "Error editing file" in result["reason"]
     assert "decode" in result["reason"].lower()
+
+
+@pytest.mark.asyncio
+async def test_create_new_file(editor, tmp_path):
+    """Test creating a new file."""
+    new_file = tmp_path / "new_file.txt"
+    content = "New file content\nLine 2\n"
+
+    # Test creating a new file
+    result = await editor.edit_file_contents(
+        str(new_file),
+        "",  # No hash for new file
+        [{"line_start": 1, "contents": content, "range_hash": None}],
+    )
+    assert result["result"] == "ok"
+    assert new_file.read_text() == content
+
+
+@pytest.mark.asyncio
+async def test_update_file(editor, tmp_path):
+    """Test updating an existing file."""
+    # Create a test file
+    test_file = tmp_path / "test_update.txt"
+    original_content = "Line 1\nLine 2\nLine 3\n"
+    test_file.write_text(original_content)
+
+    # Read the content and get hash
+    content, start, end, file_hash, total_lines, size = await editor.read_file_contents(
+        str(test_file)
+    )
+
+    # Update the second line
+    new_content = "Updated Line 2\n"
+    result = await editor.edit_file_contents(
+        str(test_file),
+        file_hash,
+        [
+            {
+                "line_start": 2,
+                "line_end": 2,
+                "contents": new_content,
+                "range_hash": editor.calculate_hash("Line 2\n"),
+            }
+        ],
+    )
+
+    assert result["result"] == "ok"
+    assert test_file.read_text() == "Line 1\nUpdated Line 2\nLine 3\n"
+
+
+@pytest.mark.asyncio
+async def test_create_file_in_new_directory(editor, tmp_path):
+    """Test creating a file in a new directory structure."""
+    # Test file in a new directory structure
+    new_file = tmp_path / "subdir" / "nested" / "test.txt"
+    content = "Content in nested directory\n"
+
+    result = await editor.edit_file_contents(
+        str(new_file),
+        "",  # No hash for new file
+        [{"line_start": 1, "contents": content, "range_hash": None}],
+    )
+
+    assert result["result"] == "ok"
+    assert new_file.read_text() == content
+
+
+@pytest.mark.asyncio
+async def test_file_hash_mismatch(editor, tmp_path):
+    """Test handling of file hash mismatch."""
+    # Create a test file
+    test_file = tmp_path / "test_hash_mismatch.txt"
+    original_content = "Line 1\nLine 2\nLine 3\n"
+    test_file.write_text(original_content)
+
+    result = await editor.edit_file_contents(
+        str(test_file),
+        "invalid_hash",  # Wrong hash
+        [
+            {
+                "line_start": 2,
+                "line_end": 2,
+                "contents": "Updated Line\n",
+                "range_hash": editor.calculate_hash("Line 2\n"),
+            }
+        ],
+    )
+
+    assert result["result"] == "error"
+    assert "hash mismatch" in result["reason"].lower()
+    assert test_file.read_text() == original_content  # File should remain unchanged
+    assert test_file.read_text() == original_content  # File should remain unchanged
+
+
+@pytest.mark.asyncio
+async def test_path_traversal_prevention(editor, tmp_path):
+    """Test prevention of path traversal attacks."""
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("Some content\n")
+    unsafe_path = str(test_file) + "/.."  # Try to traverse up
+
+    # Test read operation
+    with pytest.raises(ValueError) as excinfo:
+        await editor.read_file_contents(unsafe_path)
+    assert "Path traversal not allowed" in str(excinfo.value)
+
+    # Test write operation
+    with pytest.raises(ValueError) as excinfo:
+        await editor.edit_file_contents(
+            unsafe_path,
+            "",
+            [{"line_start": 1, "contents": "malicious content\n", "range_hash": None}],
+        )
+    assert "Path traversal not allowed" in str(excinfo.value)
+
+
+@pytest.mark.asyncio
+async def test_overlapping_patches(editor, tmp_path):
+    """Test handling of overlapping patches."""
+    # Create a test file
+    test_file = tmp_path / "test_overlap.txt"
+    original_content = "Line 1\nLine 2\nLine 3\nLine 4\n"
+    test_file.write_text(original_content)
+
+    # Get file hash
+    content, start, end, file_hash, total_lines, size = await editor.read_file_contents(
+        str(test_file)
+    )
+
+    # Try to apply overlapping patches
+    result = await editor.edit_file_contents(
+        str(test_file),
+        file_hash,
+        [
+            {
+                "line_start": 1,
+                "line_end": 2,
+                "contents": "New Line 1-2\n",
+                "range_hash": editor.calculate_hash("Line 1\nLine 2\n"),
+            },
+            {
+                "line_start": 2,
+                "line_end": 3,
+                "contents": "New Line 2-3\n",
+                "range_hash": editor.calculate_hash("Line 2\nLine 3\n"),
+            },
+        ],
+    )
+
+    assert result["result"] == "error"
+    assert "overlap" in result["reason"].lower()
+    assert test_file.read_text() == original_content  # File should remain unchanged
+
+
+@pytest.mark.asyncio
+async def test_empty_content_handling(editor, tmp_path):
+    """Test handling of empty file content."""
+    # Create an empty test file
+    test_file = tmp_path / "empty.txt"
+    test_file.write_text("")
+
+    # Read empty file
+    content, start, end, file_hash, total_lines, size = await editor.read_file_contents(
+        str(test_file)
+    )
+    assert content == ""
+    assert total_lines == 0
+    assert size == 0
+
+    # Write to empty file (treat it as a new file)
+    result = await editor.edit_file_contents(
+        str(test_file),
+        "",  # No hash for empty file
+        [
+            {"line_start": 1, "contents": "New content\n", "range_hash": None}
+        ],  # No range hash needed for new files
+    )
+
+    assert result["result"] == "ok"
+    assert test_file.read_text() == "New content\n"
+
+
+@pytest.mark.asyncio
+async def test_read_multiple_ranges_line_exceed(editor, tmp_path):
+    """Test reading multiple ranges with exceeding line numbers."""
+    # Create a test file
+    test_file = tmp_path / "test.txt"
+    content = "Line 1\nLine 2\nLine 3\n"
+    test_file.write_text(content)
+
+    # Request ranges that exceed file length
+    ranges = [
+        {
+            "file_path": str(test_file),
+            "ranges": [{"start": 4, "end": None}, {"start": 1, "end": 2}],
+        }
+    ]
+
+    result = await editor.read_multiple_ranges(ranges)
+
+    # Check the exceeded range
+    assert len(result[str(test_file)]["ranges"]) == 2
+    # First range (exceeded)
+    assert result[str(test_file)]["ranges"][0]["content"] == ""
+    assert result[str(test_file)]["ranges"][0]["start_line"] == 4
+    assert result[str(test_file)]["ranges"][0]["end_line"] == 4
+    assert result[str(test_file)]["ranges"][0]["content_size"] == 0
+    # Second range (normal)
+    assert result[str(test_file)]["ranges"][1]["content"] == "Line 1\nLine 2\n"
+
+
+@pytest.mark.asyncio
+async def test_directory_creation_failure(editor, tmp_path):
+    """Test failure in directory creation."""
+    # Create a file in place of a directory to cause mkdir to fail
+    base_dir = tmp_path / "blocked"
+    base_dir.write_text("")
+    test_file = base_dir / "subdir" / "test.txt"
+
+    result = await editor.edit_file_contents(
+        str(test_file),
+        "",  # New file
+        [{"line_start": 1, "contents": "test content\n", "range_hash": None}],
+    )
+
+    assert result["result"] == "error"
+    assert "Failed to create directory" in result["reason"]
+    assert result["file_hash"] is None
+
+
+@pytest.mark.asyncio
+async def test_invalid_encoding_file_operations(editor, tmp_path):
+    """Test handling of files with invalid encoding during various operations."""
+    test_file = tmp_path / "invalid_encoding.txt"
+    # Create a file with Shift-JIS content that will fail UTF-8 decoding
+    test_data = bytes([0x83, 0x65, 0x83, 0x58, 0x83, 0x67, 0x0A])  # シフトJISのデータ
+    with open(test_file, "wb") as f:
+        f.write(test_data)
+
+    # Test encoding error in file operations
+    result = await editor.edit_file_contents(
+        str(test_file),
+        "",  # hash doesn't matter as it will fail before hash check
+        [{"line_start": 1, "contents": "new content\n", "range_hash": None}],
+        encoding="utf-8",
+    )
+
+    assert result["result"] == "error"
+    assert "Error editing file" in result["reason"]
+    assert "decode" in result["reason"].lower()
+
+
+@pytest.mark.asyncio
+async def test_create_file_directory_error(editor, tmp_path, monkeypatch):
+    """Test creating a file when directory creation fails."""
+    # Create a path with multiple nested directories
+    deep_path = tmp_path / "deeply" / "nested" / "path" / "test.txt"
+
+    # Mock os.makedirs to raise an OSError
+    def mock_makedirs(*args, **kwargs):
+        raise OSError("Permission denied")
+
+    monkeypatch.setattr("os.makedirs", mock_makedirs)
+
+    # Attempt to create a new file
+    result = await editor.edit_file_contents(
+        str(deep_path),
+        "",  # Empty hash for new file
+        [
+            {
+                "line_start": 1,
+                "contents": "test content\n",
+            }
+        ],
+    )
+
+    # Verify proper error handling
+    assert result["result"] == "error"
+    assert "Failed to create directory" in result["reason"]
+    assert "Permission denied" in result["reason"]
+    assert result["file_hash"] is None
+    assert result["content"] is None
+
+
+@pytest.mark.asyncio
+async def test_create_file_with_empty_directory(editor, tmp_path):
+    """Test creating a file when parent directory is an empty string."""
+    # Create a file in the current directory (no parent directory)
+    file_path = tmp_path / "test.txt"
+
+    # Attempt to create a new file
+    result = await editor.edit_file_contents(
+        str(file_path),
+        "",  # Empty hash for new file
+        [
+            {
+                "line_start": 1,
+                "contents": "test content\n",
+            }
+        ],
+    )
+
+    # Verify successful file creation
+    assert result["result"] == "ok"
+    assert file_path.read_text() == "test content\n"
+    assert result["file_hash"] is not None
+
+
+@pytest.mark.asyncio
+async def test_file_write_permission_error(editor, tmp_path):
+    """Test file write permission error handling."""
+    # Create a test file
+    test_file = tmp_path / "readonly.txt"
+    test_file.write_text("original content\n")
+    test_file.chmod(0o444)  # Make file read-only
+
+    # Get file hash
+    content, _, _, file_hash, _, _ = await editor.read_file_contents(str(test_file))
+
+    # Attempt to modify read-only file
+    result = await editor.edit_file_contents(
+        str(test_file),
+        file_hash,
+        [
+            {
+                "line_start": 1,
+                "contents": "new content\n",
+                "range_hash": editor.calculate_hash("original content\n"),
+            }
+        ],
+    )
+
+    # Verify proper error handling
+    assert result["result"] == "error"
+    assert "Error editing file" in result["reason"]
+    assert "Permission" in result["reason"]
+    assert result["file_hash"] is None
+    assert result["content"] is None
+
+
+@pytest.mark.asyncio
+async def test_edit_file_with_none_line_end(editor, tmp_path):
+    """Test editing file with line_end=None."""
+    test_file = tmp_path / "none_end.txt"
+    test_file.write_text("line1\nline2\nline3\n")
+
+    # Get file hash
+    content, _, _, file_hash, _, _ = await editor.read_file_contents(str(test_file))
+
+    # デバッグ用の出力を追加
+    patch = {
+        "line_start": 2,
+        "line_end": None,  # This should replace from line 2 to end
+        "contents": "new2\nnew3\n",
+        "range_hash": editor.calculate_hash("line2\nline3\n"),
+    }
+    print(f"\nDebug - Patch being sent: {patch}")
+    # Test replacement with None as line_end
+    result = await editor.edit_file_contents(
+        str(test_file),
+        file_hash,
+        [
+            {
+                "line_start": 2,
+                "line_end": None,  # This should replace from line 2 to end
+                "contents": "new2\nnew3\n",
+                "range_hash": editor.calculate_hash("line2\nline3\n"),
+            }
+        ],
+    )
+    assert result["result"] == "ok"
+    assert test_file.read_text() == "line1\nnew2\nnew3\n"
+
+
+@pytest.mark.asyncio
+async def test_edit_file_with_exceeding_line_end(editor, tmp_path):
+    """Test editing file with line_end exceeding file length."""
+    test_file = tmp_path / "exceed_end.txt"
+    test_file.write_text("line1\nline2\nline3\n")
+
+    # Get file hash
+    content, _, _, file_hash, _, _ = await editor.read_file_contents(str(test_file))
+
+    # Test replacement with line_end > file length
+    result = await editor.edit_file_contents(
+        str(test_file),
+        file_hash,
+        [
+            {
+                "line_start": 2,
+                "line_end": 10,  # File only has 3 lines
+                "contents": "new2\nnew3\n",
+                "range_hash": editor.calculate_hash("line2\nline3\n"),
+            }
+        ],
+    )
+
+    assert result["result"] == "ok"
+    assert test_file.read_text() == "line1\nnew2\nnew3\n"
+
+    # Clean up
+    test_file.chmod(0o644)  # Restore write permission for cleanup
+
+
+@pytest.mark.asyncio
+async def test_new_file_with_non_empty_hash(editor, tmp_path):
+    """Test handling of new file creation with non-empty hash."""
+    new_file = tmp_path / "nonexistent.txt"
+    result = await editor.edit_file_contents(
+        str(new_file),
+        "non_empty_hash",  # Non-empty hash for non-existent file
+        [
+            {
+                "line_start": 1,
+                "contents": "test content\n",
+            }
+        ],
+    )
+
+    # Verify proper error handling
+    assert result["result"] == "error"
+    assert "File not found and non-empty hash provided" in result["reason"]
+    assert result["file_hash"] is None
+    assert result["content"] is None
+
+
+@pytest.mark.asyncio
+async def test_read_file_contents_with_start_beyond_total(editor, tmp_path):
+    """Test read_file_contents when line_start is beyond total lines."""
+    # Create a test file
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("line1\nline2\nline3\n")
+
+    # Call read_file_contents with line_start beyond total lines
+    content, start, end, content_hash, total_lines, content_size = (
+        await editor.read_file_contents(str(test_file), line_start=10)
+    )
+
+    # Verify empty content is returned
+    assert content == ""
+    assert start == 9  # line_start is converted to 0-based indexing
+    assert end == 9
+    assert content_hash == editor.calculate_hash("")
+    assert total_lines == 3
+    assert content_size == 0

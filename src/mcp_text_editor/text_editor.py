@@ -268,23 +268,28 @@ class TextEditor:
                     await self.read_file_contents(file_path, encoding=encoding)
                 )
 
-                if current_hash != expected_hash:
+                # Treat empty file as new file
+                if not current_content:
+                    current_content = ""
+                    current_hash = ""
+                    lines = []
+                elif current_hash != expected_hash:
                     return {
                         "result": "error",
                         "reason": "Hash mismatch - file has been modified",
                         "hash": None,
                         "content": current_content,
                     }
-
-                # Convert content to lines for easier manipulation
-                lines = current_content.splitlines(keepends=True)
+                else:
+                    # Convert content to lines for easier manipulation
+                    lines = current_content.splitlines(keepends=True)
 
             # Sort patches from bottom to top to avoid line number shifts
             sorted_patches = sorted(
                 patches,
                 key=lambda x: (
                     -(x.get("line_start", 1)),
-                    -(x.get("line_end", x.get("line_start", 1))),
+                    -(x.get("line_end", x.get("line_start", 1)) or float("inf")),
                 ),
             )
 
@@ -314,12 +319,12 @@ class TextEditor:
                 line_start = patch.get("line_start", 1)
                 line_end = patch.get("line_end", line_start)
                 expected_range_hash = patch.get("range_hash")
-                is_insertion = line_end < line_start
+                is_insertion = False if line_end is None else line_end < line_start
 
-                # Skip range_hash for new files and insertions
-                if not os.path.exists(file_path) or is_insertion:
+                # Skip range_hash for new files, empty files and insertions
+                if not os.path.exists(file_path) or not current_content or is_insertion:
                     expected_range_hash = self.calculate_hash("")
-                # For existing files and non-insertions, range_hash is required
+                # For existing, non-empty files and non-insertions, range_hash is required
                 elif expected_range_hash is None:
                     return {
                         "result": "error",
@@ -331,43 +336,58 @@ class TextEditor:
                 # Handle insertion or replacement
                 if is_insertion:
                     target_content = ""  # For insertion, we verify empty content
-
-                # Convert to 0-based indexing
-                line_start -= 1
-                if not is_insertion:
-                    if line_end is not None:
-                        line_end -= 1
-                    else:
-                        line_end = len(lines) - 1
-
-                    # Ensure we don't exceed file bounds for replacements
-                    line_end = min(line_end, len(lines) - 1)
+                else:
+                    # Convert to 0-based indexing for existing content
+                    line_start_zero = line_start - 1
 
                     # Calculate target content for hash verification
-                    target_lines = lines[line_start : line_end + 1]
-                    target_content = "".join(target_lines)
+                    if line_start_zero >= len(lines):
+                        target_content = ""
+                    else:
+                        # If line_end is None, we read until the end of the file
+                        if line_end is None:
+                            target_lines = lines[line_start_zero:]
+                        else:
+                            # Adjust to 0-based indexing and make inclusive
+                            line_end_zero = min(line_end - 1, len(lines) - 1)
+                            target_lines = lines[line_start_zero : line_end_zero + 1]
+                        target_content = "".join(target_lines)
 
                 # Calculate actual range hash and verify only for non-insertions
                 actual_range_hash = self.calculate_hash(target_content)
                 if not is_insertion and actual_range_hash != expected_range_hash:
                     return {
                         "result": "error",
-                        "reason": f"Range hash mismatch for lines {line_start + 1}-{line_end + 1}",
+                        "reason": f"Range hash mismatch for lines {line_start}-{line_end if line_end else len(lines)} ({actual_range_hash} != {expected_range_hash})",
                         "hash": None,
                         "content": current_content,
                     }
 
-                # Replace lines or insert content
+                # Convert to 0-based indexing for modification
+                line_start -= 1
+                if not is_insertion:
+                    # Handle line_end consistently with hash verification
+                    if line_end is None:
+                        # When line_end is None, replace until the end
+                        line_end = len(lines)
+                    else:
+                        line_end = min(line_end, len(lines))
+
+                # Apply the changes
                 new_content = patch["contents"]
                 if not new_content.endswith("\n"):
                     new_content += "\n"
                 new_lines = new_content.splitlines(keepends=True)
+
                 if is_insertion:
-                    # For insertion, we insert at line_start
                     lines[line_start:line_start] = new_lines
                 else:
                     # For replacement, we replace the range
-                    lines[line_start : line_end + 1] = new_lines
+                    lines[line_start:line_end] = new_lines
+
+                print(f"patch: {patch}")
+                print(f"line_end: {line_end}")
+                print(f"is_insertion: {is_insertion}")
 
             # Write the final content back to file
             final_content = "".join(lines)
@@ -398,6 +418,10 @@ class TextEditor:
                 "content": None,
             }
         except Exception as e:
+            import traceback
+
+            print(f"Error: {str(e)}")
+            print(f"Traceback:\n{traceback.format_exc()}")
             return {
                 "result": "error",
                 "reason": str(e),
