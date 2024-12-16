@@ -310,14 +310,13 @@ async def test_edit_contents_handler_malformed_input():
 @pytest.mark.asyncio
 async def test_edit_contents_handler_empty_patches():
     """Test EditTextFileContents handler with empty patches."""
-    edit_args = {"files": [{"path": "test.txt", "hash": "any_hash", "patches": []}]}
+    edit_args = {
+        "files": [{"path": "test.txt", "file_hash": "any_hash", "patches": []}]
+    }
     result = await edit_contents_handler.run_tool(edit_args)
     edit_results = json.loads(result[0].text)
     assert edit_results["test.txt"]["result"] == "error"
-    assert edit_results["test.txt"]["file_hash"] is None
-    edit_results = json.loads(result[0].text)
-    assert edit_results["test.txt"]["result"] == "error"
-    assert edit_results["test.txt"]["file_hash"] is None
+    assert edit_results["test.txt"]["reason"] == "Empty patches list"
 
 
 @pytest.mark.asyncio
@@ -361,10 +360,10 @@ async def test_edit_contents_handler_missing_hash(tmp_path):
         ]
     }
 
-    result = await edit_contents_handler.run_tool(edit_args)
-    edit_results = json.loads(result[0].text)
-    assert edit_results[str(test_file)]["result"] == "error"
-    assert "Missing required field: file_hash" in edit_results[str(test_file)]["reason"]
+    # file_hashが欠けている場合は例外が発生することを確認
+    with pytest.raises(RuntimeError) as exc_info:
+        await edit_contents_handler.run_tool(edit_args)
+    assert "Missing required field: file_hash" in str(exc_info.value)
 
 
 @pytest.mark.asyncio
@@ -402,7 +401,6 @@ async def test_edit_contents_handler_missing_patches():
     """Test EditTextFileContents handler with missing patches field."""
     edit_args = {"files": [{"path": "test.txt", "file_hash": "any_hash"}]}
 
-    result = await edit_contents_handler.run_tool(edit_args)
-    edit_results = json.loads(result[0].text)
-    assert edit_results["test.txt"]["result"] == "error"
-    assert "Missing required field: patches" in edit_results["test.txt"]["reason"]
+    with pytest.raises(RuntimeError) as exc_info:
+        await edit_contents_handler.run_tool(edit_args)
+    assert "Missing required field: patches" in str(exc_info.value)

@@ -175,35 +175,23 @@ class EditTextFileContentsHandler:
                 return [TextContent(type="text", text=json.dumps(results, indent=2))]
 
             for file_operation in files:
-                file_path = None
+                if "path" not in file_operation:
+                    raise RuntimeError("Missing required field: path")
+                if "file_hash" not in file_operation:
+                    raise RuntimeError("Missing required field: file_hash")
+                if "patches" not in file_operation:
+                    raise RuntimeError("Missing required field: patches")
+
                 try:
-                    try:
-                        file_path = file_operation["path"]
-                    except KeyError as e:
-                        raise RuntimeError(
-                            "Missing required field: path in file operation"
-                        ) from e
-
-                    try:
-                        file_hash = file_operation["file_hash"]
-                    except KeyError as e:
-                        raise RuntimeError(
-                            f"Missing required field: file_hash for file {file_path}"
-                        ) from e
-
-                    # Ensure patches list is not empty
-                    try:
-                        patches = file_operation["patches"]
-                    except KeyError as e:
-                        raise RuntimeError(
-                            f"Missing required field: patches for file {file_path}"
-                        ) from e
+                    file_path = file_operation["path"]
+                    file_hash = file_operation["file_hash"]
+                    patches = file_operation["patches"]
 
                     if not patches:
                         results[file_path] = {
                             "result": "error",
                             "reason": "Empty patches list",
-                            "file_hash": None,
+                            "file_hash": file_hash,
                             "content": None,
                         }
                         continue
@@ -214,15 +202,22 @@ class EditTextFileContentsHandler:
                     )
                     results[file_path] = result
                 except Exception as e:
-                    if file_path:
-                        results[file_path] = {
-                            "result": "error",
-                            "reason": str(e),
-                            "file_hash": None,
-                            "content": None,
-                        }
-                    else:
-                        raise
+                    current_hash = None
+                    if "path" in file_operation:
+                        file_path = file_operation["path"]
+                        try:
+                            current_content, _, _, current_hash, _, _ = (
+                                await self.editor.read_file_contents(file_path)
+                            )
+                        except Exception:
+                            current_hash = None
+
+                    results[file_path if "path" in file_operation else "unknown"] = {
+                        "result": "error",
+                        "reason": str(e),
+                        "file_hash": current_hash,
+                        "content": None,
+                    }
 
             return [TextContent(type="text", text=json.dumps(results, indent=2))]
         except Exception as e:
