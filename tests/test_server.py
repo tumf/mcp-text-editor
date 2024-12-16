@@ -404,3 +404,61 @@ async def test_edit_contents_handler_missing_patches():
     with pytest.raises(RuntimeError) as exc_info:
         await edit_contents_handler.run_tool(edit_args)
     assert "Missing required field: patches" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_edit_contents_handler_multiple_patches(tmp_path):
+    """Test EditTextFileContents handler with multiple patches in a single file."""
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("line1\nline2\nline3\nline4\nline5\n")
+    file_path = str(test_file)
+
+    get_args = {"files": [{"file_path": file_path, "ranges": [{"start": 1}]}]}
+    get_result = await get_contents_handler.run_tool(get_args)
+    content_info = json.loads(get_result[0].text)
+    file_hash = content_info[file_path]["file_hash"]
+
+    ranges = [{"start": 2, "end": 2}, {"start": 4, "end": 4}]
+    get_range_args = {"files": [{"file_path": file_path, "ranges": ranges}]}
+    range_result = json.loads(
+        (await get_contents_handler.run_tool(get_range_args))[0].text
+    )
+    range_hashes = [r["range_hash"] for r in range_result[file_path]["ranges"]]
+
+    edit_args = {
+        "files": [
+            {
+                "path": file_path,
+                "file_hash": file_hash,
+                "patches": [
+                    {
+                        "line_start": 2,
+                        "line_end": 2,
+                        "contents": "Modified Line 2\n",
+                        "range_hash": range_hashes[0],
+                    },
+                    {
+                        "line_start": 4,
+                        "line_end": 4,
+                        "contents": "Modified Line 4\n",
+                        "range_hash": range_hashes[1],
+                    },
+                ],
+            }
+        ]
+    }
+
+    # 編集を適用
+    result = await edit_contents_handler.run_tool(edit_args)
+
+    # 結果の検証
+    assert len(result) == 1
+    edit_results = json.loads(result[0].text)
+    assert file_path in edit_results
+    assert edit_results[file_path]["result"] == "ok"
+
+    # ファイルの内容を確認
+    with open(file_path) as f:
+        content = f.read()
+    assert "Modified Line 2" in content
+    assert "Modified Line 4" in content

@@ -192,7 +192,6 @@ class EditTextFileContentsHandler:
                             "result": "error",
                             "reason": "Empty patches list",
                             "file_hash": file_hash,
-                            "content": None,
                         }
                         continue
 
@@ -206,7 +205,7 @@ class EditTextFileContentsHandler:
                     if "path" in file_operation:
                         file_path = file_operation["path"]
                         try:
-                            current_content, _, _, current_hash, _, _ = (
+                            _, _, _, current_hash, _, _ = (
                                 await self.editor.read_file_contents(file_path)
                             )
                         except Exception:
@@ -216,7 +215,6 @@ class EditTextFileContentsHandler:
                         "result": "error",
                         "reason": str(e),
                         "file_hash": current_hash,
-                        "content": None,
                     }
 
             return [TextContent(type="text", text=json.dumps(results, indent=2))]
