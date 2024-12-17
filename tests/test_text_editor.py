@@ -830,7 +830,7 @@ async def test_edit_file_without_line_end(editor, tmp_path):
     patch = EditPatch(
         contents="new line\n",
         line_start=1,
-        line_end=1,  # 明示的にline_endを設定
+        line_end=1,
         range_hash=editor.calculate_hash("line1\n"),
     )
 
