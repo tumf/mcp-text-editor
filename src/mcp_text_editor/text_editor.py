@@ -265,7 +265,7 @@ class TextEditor:
                         "result": "error",
                         "reason": "Hash mismatch - file has been modified",
                         "file_hash": None,
-                        "content": current_content,
+                        "content": None,
                     }
                 else:
                     lines = current_content.splitlines(keepends=True)
@@ -299,7 +299,7 @@ class TextEditor:
                             "result": "error",
                             "reason": "Overlapping patches detected",
                             "hash": None,
-                            "content": current_content,
+                            "content": None,
                         }
 
             # Apply patches
@@ -333,7 +333,7 @@ class TextEditor:
                         "result": "error",
                         "reason": "Unexpected error",
                         "file_hash": None,
-                        "content": current_content,
+                        "content": None,
                     }
 
                 # Calculate line ranges for zero-based indexing
