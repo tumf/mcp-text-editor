@@ -80,6 +80,15 @@ wheels = [
 ]
 
 [[package]]
+name = "chardet"
+version = "5.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f3/0d/f7b6ab21ec75897ed80c17d79b15951a719226b9fababf1e40ea74d69079/chardet-5.2.0.tar.gz", hash = "sha256:1b3b6ff479a8c414bc3fa2c0852995695c4a026dcd6d0633b2dd092ca39c1cf7", size = 2069618 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/38/6f/f5fbc992a329ee4e0f288c1fe0e2ad9485ed064cac731ed2fe47dcc38cbf/chardet-5.2.0-py3-none-any.whl", hash = "sha256:e1cf59446890a00105fe7b7912492ea04b6e6f06d4b742b2c788469e34c82970", size = 199385 },
+]
+
+[[package]]
 name = "click"
 version = "8.1.7"
 source = { registry = "https://pypi.org/simple" }
@@ -255,7 +264,7 @@ wheels = [
 
 [[package]]
 name = "mcp"
-version = "1.1.1"
+version = "1.1.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -265,9 +274,9 @@ dependencies = [
     { name = "sse-starlette" },
     { name = "starlette" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/be/d5/15b9ff17c9e03bb6d936a0e1202aca69e3fa93508e749e620ae4f4fbd884/mcp-1.1.1.tar.gz", hash = "sha256:44d9c12461b640c4431618a3ebf1be4178d35511e9169e25c9b1afeb59313b99", size = 57790 }
+sdist = { url = "https://files.pythonhosted.org/packages/9b/f3/5cf212e60681ea6da0dbb6e0d1bc0ab2dbf5eebc749b69663d46f114fea1/mcp-1.1.2.tar.gz", hash = "sha256:694aa9df7a8641b24953c935eb72c63136dc948981021525a0add199bdfee402", size = 57628 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/8c/30/dcffd09aa623b5a40e8ccb4227e935e4636cc4bec8d54ef9609768c24a53/mcp-1.1.1-py3-none-any.whl", hash = "sha256:29f693a54ca1d3730e625dcc06732bc83b52d64b993d253881de576a1d66feed", size = 36574 },
+    { url = "https://files.pythonhosted.org/packages/df/40/9883eac3718b860d4006eba1920bfcb628f0a1fe37fac46a4f4e391edca6/mcp-1.1.2-py3-none-any.whl", hash = "sha256:a4d32d60fd80a1702440ba4751b847a8a88957a1f7b059880953143e9759965a", size = 36652 },
 ]
 
 [[package]]
@@ -276,6 +285,7 @@ version = "0.0.0.dev0"
 source = { editable = "." }
 dependencies = [
     { name = "asyncio" },
+    { name = "chardet" },
     { name = "mcp" },
 ]
 
@@ -299,8 +309,9 @@ test = [
 requires-dist = [
     { name = "asyncio", specifier = ">=3.4.3" },
     { name = "black", marker = "extra == 'dev'", specifier = ">=23.3.0" },
+    { name = "chardet", specifier = ">=5.2.0" },
     { name = "isort", marker = "extra == 'dev'", specifier = ">=5.12.0" },
-    { name = "mcp", specifier = ">=1.1.0" },
+    { name = "mcp", specifier = ">=1.1.2" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.2.0" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.2.2" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8.3.4" },

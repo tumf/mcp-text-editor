@@ -47,6 +47,7 @@ MCP Text Editor Server is designed to facilitate safe and efficient line-based t
 - Read multiple ranges from multiple files in a single operation
 - Line-based patch application with correct handling of line number shifts
 - Edit text file contents with conflict detection
+- Flexible character encoding support (utf-8, shift_jis, latin1, etc.)
 - Support for multiple file operations
 - Proper handling of concurrent edits with hash-based validation
 - Memory-efficient processing of large files
@@ -143,6 +144,7 @@ Parameters:
 - `file_path`: Path to the text file
 - `line_start`/`start`: Line number to start from (1-based)
 - `line_end`/`end`: Line number to end at (inclusive, null for end of file)
+- `encoding`: File encoding (default: "utf-8"). Specify the encoding of the text file (e.g., "shift_jis", "latin1")
 
 **Single Range Response:**
 
@@ -238,6 +240,7 @@ Important Notes:
 3. Patches must not overlap within the same file
 4. Line numbers are 1-based
 5. If original content ends with newline, ensure patch content also ends with newline
+6. File encoding must match the encoding used in get_text_file_contents
 
 **Success Response:**
 
@@ -295,6 +298,7 @@ result = await edit_text_file_contents({
         {
             "path": "file.txt",
             "hash": contents["file.txt"][0]["hash"],
+            "encoding": "utf-8",  # Optional, defaults to "utf-8"
             "patches": [
                 {
                     "line_start": 5,
@@ -325,6 +329,7 @@ The server handles various error cases:
 - Hash mismatches (concurrent edit detection)
 - Invalid patch ranges
 - Overlapping patches
+- Encoding errors (when file cannot be decoded with specified encoding)
 - Line number out of bounds
 
 ## Security Considerations
