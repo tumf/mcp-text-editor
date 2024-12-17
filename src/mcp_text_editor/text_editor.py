@@ -180,7 +180,7 @@ class TextEditor:
     async def edit_file_contents(
         self,
         file_path: str,
-        expected_hash: str,
+        expected_file_hash: str,
         patches: List[Dict[str, Any]],
         encoding: str = "utf-8",
     ) -> Dict[str, Any]:
@@ -189,7 +189,7 @@ class TextEditor:
 
         Args:
             file_path (str): Path to the file to edit
-            expected_hash (str): Expected hash of the file before editing
+            expected_file_hash (str): Expected hash of the file before editing
             patches (List[EditPatch]): List of patches to apply
                 - line_start (int): Starting line number (1-based, optional, default: 1)
                 - line_end (Optional[int]): Ending line number (inclusive)
@@ -198,7 +198,7 @@ class TextEditor:
 
         Args:
             file_path (str): Path to the file to edit (parent directories are created automatically)
-            expected_hash (str): Expected hash of the file before editing (empty string for new files)
+            expected_file_hash (str): Expected hash of the file before editing (empty string for new files)
             patches (List[Dict[str, Any]]): List of patches to apply, each containing:
                 - line_start (int): Starting line number (1-based)
                 - line_end (Optional[int]): Ending line number (inclusive)
@@ -208,7 +208,7 @@ class TextEditor:
         Returns:
             Dict[str, Any]: Results of the operation containing:
                 - result: "ok" or "error"
-                - hash: New file hash if successful, None if error
+                - file_hash: New file hash if successful, None if error
                 - reason: Error message if result is "error"
                     "content": None,
                 }
@@ -218,7 +218,7 @@ class TextEditor:
         self._validate_file_path(file_path)
         try:
             if not os.path.exists(file_path):
-                if expected_hash not in ["", None]:  # Allow null hash
+                if expected_file_hash not in ["", None]:  # Allow null hash
                     return {
                         "result": "error",
                         "reason": "File not found and non-empty hash provided",
@@ -253,14 +253,14 @@ class TextEditor:
                     current_content = ""
                     current_hash = ""
                     lines = []
-                elif current_content and expected_hash == "":
+                elif current_content and expected_file_hash == "":
                     return {
                         "result": "error",
                         "reason": "Unexpected error - Cannot treat existing file as new",
                         "file_hash": None,
                         "content": None,
                     }
-                elif current_hash != expected_hash:
+                elif current_hash != expected_file_hash:
                     return {
                         "result": "error",
                         "reason": "FileHash mismatch - Please use get_text_file_contents tool to get current content and hashes, then retry with the updated hashes.",
@@ -298,7 +298,7 @@ class TextEditor:
                         return {
                             "result": "error",
                             "reason": "Overlapping patches detected",
-                            "hash": None,
+                            "file_hash": None,
                             "content": None,
                         }
 
@@ -327,7 +327,7 @@ class TextEditor:
                 if (
                     os.path.exists(file_path)
                     and current_content
-                    and expected_hash == ""
+                    and expected_file_hash == ""
                 ):
                     return {
                         "result": "error",
