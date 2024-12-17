@@ -49,7 +49,6 @@ class EditResult(BaseModel):
     hash: Optional[str] = Field(
         None, description="Current content hash (None for missing files)"
     )
-    content: Optional[str] = Field(None, description="Current content if hash error")
 
     def to_dict(self) -> Dict:
         """Convert EditResult to a dictionary."""
@@ -57,7 +56,6 @@ class EditResult(BaseModel):
             "result": self.result,
             "reason": self.reason,
             "hash": self.hash,
-            "content": self.content,
         }
 
 

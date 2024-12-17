@@ -65,7 +65,6 @@ class TextEditorService:
                         result="error",
                         reason="Content hash mismatch",
                         hash=current_hash,
-                        content=None,
                     )
                 }
 
@@ -79,7 +78,6 @@ class TextEditorService:
                         result="error",
                         reason="Invalid patch ranges",
                         hash=current_hash,
-                        content=None,
                     )
                 }
 
@@ -101,7 +99,6 @@ class TextEditorService:
                 file_path: EditResult(
                     result="ok",
                     hash=new_hash,
-                    content=None,
                     reason=None,
                 )
             }
@@ -112,7 +109,6 @@ class TextEditorService:
                     result="error",
                     reason=str(e),
                     hash=None,
-                    content=None,
                 )
             }
         except Exception as e:
@@ -121,6 +117,5 @@ class TextEditorService:
                     result="error",
                     reason=str(e),
                     hash=None,  # Don't return the current hash on error
-                    content=None,
                 )
             }

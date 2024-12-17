@@ -101,19 +101,16 @@ def test_edit_result():
     assert result.result == "ok"
     assert result.hash == "newhash123"
     assert result.reason is None
-    assert result.content is None
 
-    # Test error result with reason and content
+    # Test error result with reason
     result = EditResult(
         result="error",
         reason="hash mismatch",
         hash="currenthash123",
-        content="current content",
     )
     assert result.result == "error"
     assert result.reason == "hash mismatch"
     assert result.hash == "currenthash123"
-    assert result.content == "current content"
 
     # Test validation error - missing required fields
     with pytest.raises(ValidationError):
@@ -171,7 +168,6 @@ def test_edit_result_to_dict():
         "result": "ok",
         "hash": "newhash123",
         "reason": None,
-        "content": None,
     }
 
     # Test error result
@@ -179,14 +175,12 @@ def test_edit_result_to_dict():
         result="error",
         reason="hash mismatch",
         hash="currenthash123",
-        content="current content",
     )
     result_dict = result.to_dict()
     assert result_dict == {
         "result": "error",
         "reason": "hash mismatch",
         "hash": "currenthash123",
-        "content": "current content",
     }
 
 

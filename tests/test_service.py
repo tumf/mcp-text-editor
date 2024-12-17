@@ -119,7 +119,6 @@ def test_edit_file_contents_hash_mismatch(service, tmp_path):
     edit_result = result[file_path]
     assert edit_result.result == "error"
     assert "hash mismatch" in edit_result.reason.lower()
-    assert edit_result.content is None
 
 
 def test_edit_file_contents_invalid_patches(service, tmp_path):
@@ -186,7 +185,6 @@ def test_edit_file_unexpected_error(service, tmp_path):
     assert edit_result.result == "error"
     assert "no such file" in edit_result.reason.lower()
     assert edit_result.hash is None
-    assert edit_result.content is None
 
 
 def test_edit_file_contents_permission_error(service, tmp_path):
@@ -214,7 +212,6 @@ def test_edit_file_contents_permission_error(service, tmp_path):
     assert edit_result.result == "error"
     assert "permission denied" in edit_result.reason.lower()
     assert edit_result.hash is None
-    assert edit_result.content is None
 
     # Clean up
     os.chmod(file_path, 0o644)
@@ -257,4 +254,3 @@ def test_edit_file_contents_general_exception(service, mocker):
         if os.path.exists(test_file):
             os.remove(test_file)
     assert edit_result.hash is None
-    assert edit_result.content is None
