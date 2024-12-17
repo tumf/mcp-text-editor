@@ -218,7 +218,7 @@ class TextEditor:
         self._validate_file_path(file_path)
         try:
             if not os.path.exists(file_path):
-                if expected_hash != "":  # Only allow empty hash for new files
+                if expected_hash not in ["", None]:  # Allow null hash
                     return {
                         "result": "error",
                         "reason": "File not found and non-empty hash provided",
