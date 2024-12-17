@@ -16,32 +16,32 @@ class TextEditorService:
 
     @staticmethod
     def read_file_contents(
-        file_path: str, line_start: int = 1, line_end: Optional[int] = None
+        file_path: str, start: int = 1, end: Optional[int] = None
     ) -> Tuple[str, int, int]:
         """Read file contents within specified line range."""
         with open(file_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
 
         # Adjust line numbers to 0-based index
-        line_start = max(1, line_start) - 1
-        line_end = len(lines) if line_end is None else min(line_end, len(lines))
+        start = max(1, start) - 1
+        end = len(lines) if end is None else min(end, len(lines))
 
-        selected_lines = lines[line_start:line_end]
+        selected_lines = lines[start:end]
         content = "".join(selected_lines)
 
-        return content, line_start + 1, line_end
+        return content, start + 1, end
 
     @staticmethod
     def validate_patches(patches: List[EditPatch], total_lines: int) -> bool:
         """Validate patches for overlaps and bounds."""
-        # Sort patches by line_start
-        sorted_patches = sorted(patches, key=lambda x: x.line_start)
+        # Sort patches by start
+        sorted_patches = sorted(patches, key=lambda x: x.start)
 
         prev_end = 0
         for patch in sorted_patches:
-            if patch.line_start <= prev_end:
+            if patch.start <= prev_end:
                 return False
-            patch_end = patch.line_end or total_lines
+            patch_end = patch.end or total_lines
             if patch_end > total_lines:
                 return False
             prev_end = patch_end
@@ -84,8 +84,8 @@ class TextEditorService:
             # Apply patches
             new_lines = lines.copy()
             for patch in operation.patches:
-                start_idx = patch.line_start - 1
-                end_idx = patch.line_end if patch.line_end else len(lines)
+                start_idx = patch.start - 1
+                end_idx = patch.end if patch.end else len(lines)
                 patch_lines = patch.contents.splitlines(keepends=True)
                 new_lines[start_idx:end_idx] = patch_lines
 

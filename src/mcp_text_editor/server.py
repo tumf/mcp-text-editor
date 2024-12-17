@@ -109,7 +109,7 @@ class EditTextFileContentsHandler:
     """Handler for editing text file contents."""
 
     name = "edit_text_file_contents"
-    description = "A line editor that supports editing text file contents by specifying line ranges and content. It handles multiple patches in a single operation with hash-based conflict detection. File paths must be absolute. IMPORTANT: (1) Before using this tool, you must first get the file's current hash and range hashes and line numbers using get_text_file_contents. (2) To avoid line number shifts affecting your patches, use get_text_file_contents to read the SAME ranges you plan to edit before making changes. different line numbers have different rangehashes.(3) Patches must be specified from bottom to top to handle line number shifts correctly, as edits to lower lines don't affect the line numbers of higher lines. (4) To append content to a file, first get the total number of lines with get_text_file_contents, then specify a patch with line_start = total_lines + 1 and line_end = total_lines. This indicates an append operation and range_hash is not required. Similarly, range_hash is not required for new file creation."
+    description = "A line editor that supports editing text file contents by specifying line ranges and content. It handles multiple patches in a single operation with hash-based conflict detection. File paths must be absolute. IMPORTANT: (1) Before using this tool, you must first get the file's current hash and range hashes and line numbers using get_text_file_contents. (2) To avoid line number shifts affecting your patches, use get_text_file_contents to read the SAME ranges you plan to edit before making changes. different line numbers have different rangehashes.(3) Patches must be specified from bottom to top to handle line number shifts correctly, as edits to lower lines don't affect the line numbers of higher lines. (4) To append content to a file, first get the total number of lines with get_text_file_contents, then specify a patch with start = total_lines + 1 and end = total_lines. This indicates an append operation and range_hash is not required. Similarly, range_hash is not required for new file creation."
 
     def __init__(self):
         self.editor = TextEditor()
@@ -140,12 +140,12 @@ class EditTextFileContentsHandler:
                                     "items": {
                                         "type": "object",
                                         "properties": {
-                                            "line_start": {
+                                            "start": {
                                                 "type": "integer",
                                                 "default": 1,
                                                 "description": "Starting line number (1-based). it should be matched with the start line number when get_text_file_contents is called.",
                                             },
-                                            "line_end": {
+                                            "end": {
                                                 "type": ["integer", "null"],
                                                 "default": None,
                                                 "description": "Ending line number (null for end of file). it should be matched with the end line number when get_text_file_contents is called.",
@@ -153,7 +153,7 @@ class EditTextFileContentsHandler:
                                             "contents": {"type": "string"},
                                             "range_hash": {
                                                 "type": "string",
-                                                "description": "Hash of the content being replaced from line_start to line_end (required except for new files and append operations)",
+                                                "description": "Hash of the content being replaced from start to end (required except for new files and append operations)",
                                             },
                                         },
                                         "required": ["contents"],

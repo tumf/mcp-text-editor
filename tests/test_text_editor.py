@@ -21,8 +21,8 @@ async def test_edit_file_with_edit_patch_object(editor, tmp_path):
 
     # Create an EditPatch object
     patch = EditPatch(
-        line_start=1,
-        line_end=1,
+        start=1,
+        end=1,
         contents="new line\n",
         range_hash=editor.calculate_hash(first_line_content),
     )
@@ -66,7 +66,7 @@ async def test_missing_range_hash(editor, test_file):
     _, _, _, file_hash, _, _ = await editor.read_file_contents(test_file)
 
     # Try to edit without range_hash
-    patches = [EditPatch(line_start=2, line_end=2, contents="New content\n")]
+    patches = [EditPatch(start=2, end=2, contents="New content\n")]
     result = await editor.edit_file_contents(test_file, file_hash, patches)
 
     assert result["result"] == "error"
@@ -114,7 +114,7 @@ async def test_read_file_contents(editor, test_file):
 
     # Test reading specific lines
     content, start, end, hash_value, total_lines, size = (
-        await editor.read_file_contents(str(test_file), line_start=2, line_end=4)
+        await editor.read_file_contents(str(test_file), start=2, end=4)
     )
     assert content == "Line 2\nLine 3\nLine 4\n"
     assert start == 2
@@ -138,7 +138,7 @@ async def test_encoding_error(editor, test_invalid_encoding_file):
     result = await editor.edit_file_contents(
         test_invalid_encoding_file,
         "dummy_hash",
-        [{"line_start": 1, "contents": "test", "range_hash": "dummy_hash"}],
+        [{"start": 1, "contents": "test", "range_hash": "dummy_hash"}],
         encoding="utf-8",
     )
 
@@ -157,7 +157,7 @@ async def test_create_new_file(editor, tmp_path):
     result = await editor.edit_file_contents(
         str(new_file),
         "",  # No hash for new file
-        [{"line_start": 1, "contents": content, "range_hash": None}],
+        [{"start": 1, "contents": content, "range_hash": None}],
     )
     assert result["result"] == "ok"
     assert new_file.read_text() == content
@@ -183,8 +183,8 @@ async def test_update_file(editor, tmp_path):
         file_hash,
         [
             {
-                "line_start": 2,
-                "line_end": 2,
+                "start": 2,
+                "end": 2,
                 "contents": new_content,
                 "range_hash": editor.calculate_hash("Line 2\n"),
             }
@@ -205,7 +205,7 @@ async def test_create_file_in_new_directory(editor, tmp_path):
     result = await editor.edit_file_contents(
         str(new_file),
         "",  # No hash for new file
-        [{"line_start": 1, "contents": content, "range_hash": None}],
+        [{"start": 1, "contents": content, "range_hash": None}],
     )
 
     assert result["result"] == "ok"
@@ -225,8 +225,8 @@ async def test_file_hash_mismatch(editor, tmp_path):
         "invalid_hash",  # Wrong hash
         [
             {
-                "line_start": 2,
-                "line_end": 2,
+                "start": 2,
+                "end": 2,
                 "contents": "Updated Line\n",
                 "range_hash": editor.calculate_hash("Line 2\n"),
             }
@@ -256,7 +256,7 @@ async def test_path_traversal_prevention(editor, tmp_path):
         await editor.edit_file_contents(
             unsafe_path,
             "",
-            [{"line_start": 1, "contents": "malicious content\n", "range_hash": None}],
+            [{"start": 1, "contents": "malicious content\n", "range_hash": None}],
         )
     assert "Path traversal not allowed" in str(excinfo.value)
 
@@ -280,14 +280,14 @@ async def test_overlapping_patches(editor, tmp_path):
         file_hash,
         [
             {
-                "line_start": 1,
-                "line_end": 2,
+                "start": 1,
+                "end": 2,
                 "contents": "New Line 1-2\n",
                 "range_hash": editor.calculate_hash("Line 1\nLine 2\n"),
             },
             {
-                "line_start": 2,
-                "line_end": 3,
+                "start": 2,
+                "end": 3,
                 "contents": "New Line 2-3\n",
                 "range_hash": editor.calculate_hash("Line 2\nLine 3\n"),
             },
@@ -349,8 +349,8 @@ async def test_read_multiple_ranges_line_exceed(editor, tmp_path):
     assert len(result[str(test_file)]["ranges"]) == 2
     # First range (exceeded)
     assert result[str(test_file)]["ranges"][0]["content"] == ""
-    assert result[str(test_file)]["ranges"][0]["start_line"] == 4
-    assert result[str(test_file)]["ranges"][0]["end_line"] == 4
+    assert result[str(test_file)]["ranges"][0]["start"] == 4
+    assert result[str(test_file)]["ranges"][0]["end"] == 4
     assert result[str(test_file)]["ranges"][0]["content_size"] == 0
     # Second range (normal)
     assert result[str(test_file)]["ranges"][1]["content"] == "Line 1\nLine 2\n"
@@ -415,7 +415,7 @@ async def test_create_file_directory_error(editor, tmp_path, monkeypatch):
         "",  # Empty hash for new file
         [
             {
-                "line_start": 1,
+                "start": 1,
                 "contents": "test content\n",
             }
         ],
@@ -441,7 +441,7 @@ async def test_create_file_with_empty_directory(editor, tmp_path):
         "",  # Empty hash for new file
         [
             {
-                "line_start": 1,
+                "start": 1,
                 "contents": "test content\n",
             }
         ],
@@ -470,7 +470,7 @@ async def test_file_write_permission_error(editor, tmp_path):
         file_hash,
         [
             {
-                "line_start": 1,
+                "start": 1,
                 "contents": "new content\n",
                 "range_hash": editor.calculate_hash("original content\n"),
             }
@@ -487,7 +487,7 @@ async def test_file_write_permission_error(editor, tmp_path):
 
 @pytest.mark.asyncio
 async def test_edit_file_with_none_line_end(editor, tmp_path):
-    """Test editing file with line_end=None."""
+    """Test editing file with end=None."""
     test_file = tmp_path / "none_end.txt"
     test_file.write_text("line1\nline2\nline3\n")
 
@@ -496,20 +496,20 @@ async def test_edit_file_with_none_line_end(editor, tmp_path):
 
     # デバッグ用の出力を追加
     patch = {
-        "line_start": 2,
-        "line_end": None,  # This should replace from line 2 to end
+        "start": 2,
+        "end": None,  # This should replace from line 2 to end
         "contents": "new2\nnew3\n",
         "range_hash": editor.calculate_hash("line2\nline3\n"),
     }
     print(f"\nDebug - Patch being sent: {patch}")
-    # Test replacement with None as line_end
+    # Test replacement with None as end
     result = await editor.edit_file_contents(
         str(test_file),
         file_hash,
         [
             {
-                "line_start": 2,
-                "line_end": None,  # This should replace from line 2 to end
+                "start": 2,
+                "end": None,  # This should replace from line 2 to end
                 "contents": "new2\nnew3\n",
                 "range_hash": editor.calculate_hash("line2\nline3\n"),
             }
@@ -521,21 +521,21 @@ async def test_edit_file_with_none_line_end(editor, tmp_path):
 
 @pytest.mark.asyncio
 async def test_edit_file_with_exceeding_line_end(editor, tmp_path):
-    """Test editing file with line_end exceeding file length."""
+    """Test editing file with end exceeding file length."""
     test_file = tmp_path / "exceed_end.txt"
     test_file.write_text("line1\nline2\nline3\n")
 
     # Get file hash
     content, _, _, file_hash, _, _ = await editor.read_file_contents(str(test_file))
 
-    # Test replacement with line_end > file length
+    # Test replacement with end > file length
     result = await editor.edit_file_contents(
         str(test_file),
         file_hash,
         [
             {
-                "line_start": 2,
-                "line_end": 10,  # File only has 3 lines
+                "start": 2,
+                "end": 10,  # File only has 3 lines
                 "contents": "new2\nnew3\n",
                 "range_hash": editor.calculate_hash("line2\nline3\n"),
             }
@@ -558,7 +558,7 @@ async def test_new_file_with_non_empty_hash(editor, tmp_path):
         "non_empty_hash",  # Non-empty hash for non-existent file
         [
             {
-                "line_start": 1,
+                "start": 1,
                 "contents": "test content\n",
             }
         ],
@@ -573,19 +573,19 @@ async def test_new_file_with_non_empty_hash(editor, tmp_path):
 
 @pytest.mark.asyncio
 async def test_read_file_contents_with_start_beyond_total(editor, tmp_path):
-    """Test read_file_contents when line_start is beyond total lines."""
+    """Test read_file_contents when start is beyond total lines."""
     # Create a test file
     test_file = tmp_path / "test.txt"
     test_file.write_text("line1\nline2\nline3\n")
 
-    # Call read_file_contents with line_start beyond total lines
+    # Call read_file_contents with start beyond total lines
     content, start, end, content_hash, total_lines, content_size = (
-        await editor.read_file_contents(str(test_file), line_start=10)
+        await editor.read_file_contents(str(test_file), start=10)
     )
 
     # Verify empty content is returned
     assert content == ""
-    assert start == 9  # line_start is converted to 0-based indexing
+    assert start == 9  # start is converted to 0-based indexing
     assert end == 9
     assert content_hash == editor.calculate_hash("")
     assert total_lines == 3
@@ -682,8 +682,8 @@ async def test_insert_operation(editor, tmp_path):
         file_hash,
         [
             {
-                "line_start": 2,
-                "line_end": None,
+                "start": 2,
+                "end": None,
                 "contents": "new line\n",
                 "range_hash": editor.calculate_hash(""),
             }
@@ -709,8 +709,8 @@ async def test_content_without_newline(editor, tmp_path):
         file_hash,
         [
             {
-                "line_start": 2,
-                "line_end": 2,
+                "start": 2,
+                "end": 2,
                 "contents": "new line",  # No trailing newline
                 "range_hash": editor.calculate_hash("line2\n"),
             }
@@ -722,7 +722,7 @@ async def test_content_without_newline(editor, tmp_path):
     result = await editor.edit_file_contents(
         str(test_file),
         "",
-        [{"line_start": 1, "contents": "new content\n"}],
+        [{"start": 1, "contents": "new content\n"}],
     )
 
     assert result["result"] == "error"
@@ -737,7 +737,7 @@ async def test_invalid_line_range(editor, tmp_path):
 
     # Try to read with invalid line range
     with pytest.raises(ValueError) as excinfo:
-        await editor.read_file_contents(str(test_file), line_start=3, line_end=2)
+        await editor.read_file_contents(str(test_file), start=3, end=2)
 
     assert "End line must be greater than or equal to start line" in str(excinfo.value)
 
@@ -749,8 +749,8 @@ async def test_invalid_line_range(editor, tmp_path):
         file_hash,
         [
             {
-                "line_start": 3,
-                "line_end": 2,
+                "start": 3,
+                "end": 2,
                 "contents": "new content\n",
                 "range_hash": editor.calculate_hash("line3\n"),
             }
@@ -763,7 +763,7 @@ async def test_invalid_line_range(editor, tmp_path):
 
 @pytest.mark.asyncio
 async def test_append_mode(editor, tmp_path):
-    """Test appending content when line_start exceeds total lines."""
+    """Test appending content when start exceeds total lines."""
     # Create a test file
     test_file = tmp_path / "test_append.txt"
     original_content = "Line 1\nLine 2\nLine 3\n"
@@ -774,16 +774,16 @@ async def test_append_mode(editor, tmp_path):
         str(test_file)
     )
 
-    # Attempt to append content with line_start > total_lines
+    # Attempt to append content with start > total_lines
     append_content = "Appended Line\n"
     result = await editor.edit_file_contents(
         str(test_file),
         file_hash,
         [
             {
-                "line_start": total_lines + 1,  # Start beyond current line count
+                "start": total_lines + 1,  # Start beyond current line count
                 "contents": append_content,
-                # No line_end or range_hash needed for append mode
+                # No end or range_hash needed for append mode
             }
         ],
     )
@@ -801,15 +801,15 @@ async def test_dict_patch_with_defaults(editor: TextEditor, tmp_path):
 
     # Get first line content and calculate hashes
     first_line_content, _, _, _, _, _ = await editor.read_file_contents(
-        str(test_file), line_start=1, line_end=1
+        str(test_file), start=1, end=1
     )
     file_hash = editor.calculate_hash(original_content)
 
     # Edit using dict patch with missing optional fields
     patch = {
         "contents": "new line\n",  # Add newline to maintain file structure
-        "line_start": 1,
-        "line_end": 1,  # Explicitly specify line_end
+        "start": 1,
+        "end": 1,  # Explicitly specify end
         "range_hash": editor.calculate_hash(first_line_content),
     }
     result = await editor.edit_file_contents(str(test_file), file_hash, [patch])
@@ -820,8 +820,8 @@ async def test_dict_patch_with_defaults(editor: TextEditor, tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_edit_file_without_line_end(editor, tmp_path):
-    """Test editing a file using dictionary patch without line_end."""
+async def test_edit_file_without_end(editor, tmp_path):
+    """Test editing a file using dictionary patch without end."""
     test_file = tmp_path / "test.txt"
     content = "line1\nline2\nline3\n"
     test_file.write_text(content)
@@ -829,8 +829,8 @@ async def test_edit_file_without_line_end(editor, tmp_path):
     # Create a patch with minimal fields
     patch = EditPatch(
         contents="new line\n",
-        line_start=1,
-        line_end=1,
+        start=1,
+        end=1,
         range_hash=editor.calculate_hash("line1\n"),
     )
 

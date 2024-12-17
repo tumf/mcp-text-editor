@@ -88,8 +88,8 @@ async def test_get_contents_handler(test_file):
     assert test_file in content
     range_result = content[test_file]["ranges"][0]
     assert "content" in range_result
-    assert "start_line" in range_result
-    assert "end_line" in range_result
+    assert "start" in range_result
+    assert "end" in range_result
     assert "file_hash" in content[test_file]
     assert "total_lines" in range_result
     assert "content_size" in range_result
@@ -132,8 +132,8 @@ async def test_edit_contents_handler(test_file):
                 "file_hash": initial_hash,
                 "patches": [
                     {
-                        "line_start": 2,
-                        "line_end": 2,
+                        "start": 2,
+                        "end": 2,
                         "contents": "Modified Line 2\n",
                         "range_hash": range_hash,
                     }
@@ -161,8 +161,8 @@ async def test_call_tool_get_contents(test_file):
     assert test_file in content
     range_result = content[test_file]["ranges"][0]
     assert "content" in range_result
-    assert "start_line" in range_result
-    assert "end_line" in range_result
+    assert "start" in range_result
+    assert "end" in range_result
     assert "file_hash" in content[test_file]
     assert "total_lines" in range_result
     assert "content_size" in range_result
@@ -234,8 +234,8 @@ async def test_edit_contents_handler_multiple_files(tmp_path):
                 "file_hash": file_hash,
                 "patches": [
                     {
-                        "line_start": 2,
-                        "line_end": 2,
+                        "start": 2,
+                        "end": 2,
                         "contents": "Modified Line 2\n",
                         "range_hash": range_hash,
                     }
@@ -287,8 +287,8 @@ async def test_edit_contents_handler_partial_failure(tmp_path):
                 "file_hash": valid_hash,
                 "patches": [
                     {
-                        "line_start": 2,
-                        "line_end": 2,
+                        "start": 2,
+                        "end": 2,
                         "contents": "Modified Line 2\n",
                         "range_hash": valid_range_hash,
                     }
@@ -457,14 +457,14 @@ async def test_edit_contents_handler_multiple_patches(tmp_path):
                 "file_hash": file_hash,
                 "patches": [
                     {
-                        "line_start": 2,
-                        "line_end": 2,
+                        "start": 2,
+                        "end": 2,
                         "contents": "Modified Line 2\n",
                         "range_hash": range_hashes[0],
                     },
                     {
-                        "line_start": 4,
-                        "line_end": 4,
+                        "start": 4,
+                        "end": 4,
                         "contents": "Modified Line 4\n",
                         "range_hash": range_hashes[1],
                     },

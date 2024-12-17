@@ -9,24 +9,24 @@ class GetTextFileContentsRequest(BaseModel):
     """Request model for getting text file contents."""
 
     file_path: str = Field(..., description="Path to the text file")
-    line_start: int = Field(1, description="Starting line number (1-based)")
-    line_end: Optional[int] = Field(None, description="Ending line number (inclusive)")
+    start: int = Field(1, description="Starting line number (1-based)")
+    end: Optional[int] = Field(None, description="Ending line number (inclusive)")
 
 
 class GetTextFileContentsResponse(BaseModel):
     """Response model for getting text file contents."""
 
     contents: str = Field(..., description="File contents")
-    line_start: int = Field(..., description="Starting line number")
-    line_end: int = Field(..., description="Ending line number")
+    start: int = Field(..., description="Starting line number")
+    end: int = Field(..., description="Ending line number")
     hash: str = Field(..., description="Hash of the contents")
 
 
 class EditPatch(BaseModel):
     """Model for a single edit patch operation."""
 
-    line_start: int = Field(1, description="Starting line for edit")
-    line_end: Optional[int] = Field(None, description="Ending line for edit")
+    start: int = Field(1, description="Starting line for edit")
+    end: Optional[int] = Field(None, description="Ending line for edit")
     contents: str = Field(..., description="New content to insert")
     range_hash: Optional[str] = Field(
         None, description="Hash of content being replaced. None for insertions"
@@ -70,8 +70,8 @@ class EditTextFileContentsRequest(BaseModel):
                 "hash": "abc123...",
                 "patches": [
                     {
-                        "line_start": 1,  # default: 1 (top of file)
-                        "line_end": null,  # default: null (end of file)
+                        "start": 1,  # default: 1 (top of file)
+                        "end": null,  # default: null (end of file)
                         "contents": "new content"
                     }
                 ]
