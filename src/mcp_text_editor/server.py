@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 import traceback
 from collections.abc import Sequence
 from typing import Any, Dict, List
@@ -23,7 +24,7 @@ class GetTextFileContentsHandler:
     """Handler for getting text file contents."""
 
     name = "get_text_file_contents"
-    description = "Read text file contents from multiple files and line ranges. Returns file contents with hashes for concurrency control and line numbers for reference. The hashes are used to detect conflicts when editing the files."
+    description = "Read text file contents from multiple files and line ranges. Returns file contents with hashes for concurrency control and line numbers for reference. The hashes are used to detect conflicts when editing the files. File paths must be absolute."
 
     def __init__(self):
         self.editor = TextEditor()
@@ -44,7 +45,7 @@ class GetTextFileContentsHandler:
                             "properties": {
                                 "file_path": {
                                     "type": "string",
-                                    "description": "Path to the text file",
+                                    "description": "Path to the text file. File path must be absolute.",
                                 },
                                 "ranges": {
                                     "type": "array",
@@ -81,11 +82,15 @@ class GetTextFileContentsHandler:
     async def run_tool(self, arguments: Dict[str, Any]) -> Sequence[TextContent]:
         """Execute the tool with given arguments."""
         try:
-            # Check for required argument 'files'
             if "files" not in arguments:
                 raise RuntimeError("Missing required argument: 'files'")
 
-            # Handle request
+            for file_info in arguments["files"]:
+                if not os.path.isabs(file_info["file_path"]):
+                    raise RuntimeError(
+                        f"File path must be absolute: {file_info['file_path']}"
+                    )
+
             encoding = arguments.get("encoding", "utf-8")
             result = await self.editor.read_multiple_ranges(
                 arguments["files"], encoding=encoding
@@ -104,7 +109,7 @@ class EditTextFileContentsHandler:
     """Handler for editing text file contents."""
 
     name = "edit_text_file_contents"
-    description = "A line editor that supports editing text file contents by specifying line ranges and content. It handles multiple patches in a single operation with hash-based conflict detection. IMPORTANT: (1) Before using this tool, you must first get the file's current hash and range hashes and line numbers using get_text_file_contents. (2) To avoid line number shifts affecting your patches, use get_text_file_contents to read the SAME ranges you plan to edit before making changes. different line numbers have different rangehashes.(3) Patches must be specified from bottom to top to handle line number shifts correctly, as edits to lower lines don't affect the line numbers of higher lines. (4) To append content to a file, first get the total number of lines with get_text_file_contents, then specify a patch with line_start = total_lines + 1 and line_end = total_lines. This indicates an append operation and range_hash is not required. Similarly, range_hash is not required for new file creation."
+    description = "A line editor that supports editing text file contents by specifying line ranges and content. It handles multiple patches in a single operation with hash-based conflict detection. File paths must be absolute. IMPORTANT: (1) Before using this tool, you must first get the file's current hash and range hashes and line numbers using get_text_file_contents. (2) To avoid line number shifts affecting your patches, use get_text_file_contents to read the SAME ranges you plan to edit before making changes. different line numbers have different rangehashes.(3) Patches must be specified from bottom to top to handle line number shifts correctly, as edits to lower lines don't affect the line numbers of higher lines. (4) To append content to a file, first get the total number of lines with get_text_file_contents, then specify a patch with line_start = total_lines + 1 and line_end = total_lines. This indicates an append operation and range_hash is not required. Similarly, range_hash is not required for new file creation."
 
     def __init__(self):
         self.editor = TextEditor()
@@ -122,8 +127,14 @@ class EditTextFileContentsHandler:
                         "items": {
                             "type": "object",
                             "properties": {
-                                "path": {"type": "string"},
-                                "file_hash": {"type": "string"},
+                                "path": {
+                                    "type": "string",
+                                    "description": "Path to the text file. File path must be absolute.",
+                                },
+                                "file_hash": {
+                                    "type": "string",
+                                    "description": "Hash of the file contents when get_text_file_contents is called.",
+                                },
                                 "patches": {
                                     "type": "array",
                                     "items": {
@@ -175,12 +186,19 @@ class EditTextFileContentsHandler:
                 return [TextContent(type="text", text=json.dumps(results, indent=2))]
 
             for file_operation in files:
+                # First check if required fields exist
                 if "path" not in file_operation:
                     raise RuntimeError("Missing required field: path")
                 if "file_hash" not in file_operation:
                     raise RuntimeError("Missing required field: file_hash")
                 if "patches" not in file_operation:
                     raise RuntimeError("Missing required field: patches")
+
+                # Then check if path is absolute
+                if not os.path.isabs(file_operation["path"]):
+                    raise RuntimeError(
+                        f"File path must be absolute: {file_operation['path']}"
+                    )
 
                 try:
                     file_path = file_operation["path"]

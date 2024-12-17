@@ -1,6 +1,7 @@
 """Tests for the MCP Text Editor Server."""
 
 import json
+from pathlib import Path
 from typing import List
 
 import pytest
@@ -9,6 +10,8 @@ from mcp.types import TextContent, Tool
 from pytest_mock import MockerFixture
 
 from mcp_text_editor.server import (
+    EditTextFileContentsHandler,
+    GetTextFileContentsHandler,
     app,
     call_tool,
     edit_contents_handler,
@@ -44,14 +47,15 @@ async def test_list_tools():
 @pytest.mark.asyncio
 async def test_edit_contents_empty_patches():
     """Test editing file contents with empty patches list."""
-    request = {"files": [{"path": "test.txt", "file_hash": "hash123", "patches": []}]}
+    # Convert relative path to absolute
+    test_path = str(Path("test.txt").absolute())
+    request = {"files": [{"path": test_path, "file_hash": "hash123", "patches": []}]}
 
     response = await edit_contents_handler.run_tool(request)
-    assert isinstance(response, list)
-    assert len(response) == 1
+    assert isinstance(response[0], TextContent)
     content = json.loads(response[0].text)
-    assert content["test.txt"]["result"] == "error"
-    assert content["test.txt"]["reason"] == "Empty patches list"
+    assert content[test_path]["result"] == "error"
+    assert content[test_path]["reason"] == "Empty patches list"
 
 
 @pytest.mark.asyncio
@@ -75,7 +79,9 @@ async def test_get_contents_handler(test_file):
 @pytest.mark.asyncio
 async def test_get_contents_handler_invalid_file(test_file):
     """Test GetTextFileContents handler with invalid file."""
-    args = {"files": [{"file_path": "nonexistent.txt", "ranges": [{"start": 1}]}]}
+    # Convert relative path to absolute
+    nonexistent_path = str(Path("nonexistent.txt").absolute())
+    args = {"files": [{"file_path": nonexistent_path, "ranges": [{"start": 1}]}]}
     with pytest.raises(RuntimeError) as exc_info:
         await get_contents_handler.run_tool(args)
     assert "File not found" in str(exc_info.value)
@@ -159,11 +165,12 @@ async def test_call_tool_error_handling():
         await call_tool("get_text_file_contents", {"invalid": "args"})
     assert "Missing required argument" in str(exc_info.value)
 
-    # Test with invalid file path
+    # Convert relative path to absolute
+    nonexistent_path = str(Path("nonexistent.txt").absolute())
     with pytest.raises(RuntimeError) as exc_info:
         await call_tool(
             "get_text_file_contents",
-            {"files": [{"file_path": "nonexistent.txt", "ranges": [{"start": 1}]}]},
+            {"files": [{"file_path": nonexistent_path, "ranges": [{"start": 1}]}]},
         )
     assert "File not found" in str(exc_info.value)
 
@@ -310,13 +317,13 @@ async def test_edit_contents_handler_malformed_input():
 @pytest.mark.asyncio
 async def test_edit_contents_handler_empty_patches():
     """Test EditTextFileContents handler with empty patches."""
-    edit_args = {
-        "files": [{"path": "test.txt", "file_hash": "any_hash", "patches": []}]
-    }
+    # Convert relative path to absolute
+    test_path = str(Path("test.txt").absolute())
+    edit_args = {"files": [{"path": test_path, "file_hash": "any_hash", "patches": []}]}
     result = await edit_contents_handler.run_tool(edit_args)
     edit_results = json.loads(result[0].text)
-    assert edit_results["test.txt"]["result"] == "error"
-    assert edit_results["test.txt"]["reason"] == "Empty patches list"
+    assert edit_results[test_path]["result"] == "error"
+    assert edit_results[test_path]["reason"] == "Empty patches list"
 
 
 @pytest.mark.asyncio
@@ -462,3 +469,72 @@ async def test_edit_contents_handler_multiple_patches(tmp_path):
         content = f.read()
     assert "Modified Line 2" in content
     assert "Modified Line 4" in content
+
+
+@pytest.mark.asyncio
+async def test_get_contents_relative_path():
+    handler = GetTextFileContentsHandler()
+    with pytest.raises(RuntimeError, match="File path must be absolute:.*"):
+        await handler.run_tool(
+            {
+                "files": [
+                    {"file_path": "relative/path/file.txt", "ranges": [{"start": 1}]}
+                ]
+            }
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_contents_absolute_path():
+    handler = GetTextFileContentsHandler()
+    abs_path = str(Path("/absolute/path/file.txt").absolute())
+
+    # モックを非同期関数として定義
+    async def mock_read_multiple_ranges(*args, **kwargs):
+        return []
+
+    # モックを設定
+    handler.editor.read_multiple_ranges = mock_read_multiple_ranges
+
+    result = await handler.run_tool(
+        {"files": [{"file_path": abs_path, "ranges": [{"start": 1}]}]}
+    )
+    assert isinstance(result[0], TextContent)
+
+
+@pytest.mark.asyncio
+async def test_edit_contents_relative_path():
+    handler = EditTextFileContentsHandler()
+    with pytest.raises(RuntimeError, match="File path must be absolute:.*"):
+        await handler.run_tool(
+            {
+                "files": [
+                    {
+                        "path": "relative/path/file.txt",
+                        "file_hash": "hash123",
+                        "patches": [{"contents": "test"}],
+                    }
+                ]
+            }
+        )
+
+
+@pytest.mark.asyncio
+async def test_edit_contents_absolute_path():
+    handler = EditTextFileContentsHandler()
+    abs_path = str(Path("/absolute/path/file.txt").absolute())
+    # モックを使用して実際のファイル操作を避ける
+    handler.editor.edit_file_contents = lambda *args, **kwargs: {"result": "success"}
+
+    result = await handler.run_tool(
+        {
+            "files": [
+                {
+                    "path": abs_path,
+                    "file_hash": "hash123",
+                    "patches": [{"contents": "test"}],
+                }
+            ]
+        }
+    )
+    assert isinstance(result[0], TextContent)
