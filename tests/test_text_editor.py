@@ -737,3 +737,34 @@ async def test_invalid_line_range(editor, tmp_path):
 
     assert result["result"] == "error"
     assert "End line must be greater than or equal to start line" in result["reason"]
+
+
+@pytest.mark.asyncio
+async def test_append_mode(editor, tmp_path):
+    """Test appending content when line_start exceeds total lines."""
+    # Create a test file
+    test_file = tmp_path / "test_append.txt"
+    original_content = "Line 1\nLine 2\nLine 3\n"
+    test_file.write_text(original_content)
+
+    # Read the content and get hash
+    content, start, end, file_hash, total_lines, size = await editor.read_file_contents(
+        str(test_file)
+    )
+
+    # Attempt to append content with line_start > total_lines
+    append_content = "Appended Line\n"
+    result = await editor.edit_file_contents(
+        str(test_file),
+        file_hash,
+        [
+            {
+                "line_start": total_lines + 1,  # Start beyond current line count
+                "contents": append_content,
+                # No line_end or range_hash needed for append mode
+            }
+        ],
+    )
+
+    assert result["result"] == "ok"
+    assert test_file.read_text() == original_content + append_content

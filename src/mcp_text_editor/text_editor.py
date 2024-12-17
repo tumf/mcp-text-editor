@@ -253,12 +253,10 @@ class TextEditor:
                     current_content = ""
                     current_hash = ""
                     lines = []
-                elif current_hash != expected_hash:
-                    lines = []
                 elif current_content and expected_hash == "":
                     return {
                         "result": "error",
-                        "reason": "Unexpected error",
+                        "reason": "Unexpected error - Cannot treat existing file as new",
                         "file_hash": None,
                         "content": None,
                     }
@@ -266,7 +264,7 @@ class TextEditor:
                     return {
                         "result": "error",
                         "reason": "Hash mismatch - file has been modified",
-                        "hash": None,
+                        "file_hash": None,
                         "content": current_content,
                     }
                 else:
@@ -358,9 +356,12 @@ class TextEditor:
                 if not os.path.exists(file_path) or not current_content:
                     # New file or empty file - treat as insertion
                     is_insertion = True
+                elif line_start_zero >= len(lines):
+                    # Append mode - line_start exceeds total lines
+                    is_insertion = True
                 else:
                     # For existing files:
-                    # range_hash is required for all modifications
+                    # range_hash is required for modifications
                     if not expected_range_hash:
                         return {
                             "result": "error",
