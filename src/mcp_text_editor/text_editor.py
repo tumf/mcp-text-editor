@@ -263,7 +263,7 @@ class TextEditor:
                 elif current_hash != expected_hash:
                     return {
                         "result": "error",
-                        "reason": "Hash mismatch - file has been modified",
+                        "reason": "FileHash mismatch - Please use get_text_file_contents tool to get current content and hashes, then retry with the updated hashes.",
                         "file_hash": None,
                         "content": None,
                     }
