@@ -119,7 +119,7 @@ def test_edit_file_contents_hash_mismatch(service, tmp_path):
     edit_result = result[file_path]
     assert edit_result.result == "error"
     assert "hash mismatch" in edit_result.reason.lower()
-    assert edit_result.content == test_content
+    assert edit_result.content is None
 
 
 def test_edit_file_contents_invalid_patches(service, tmp_path):

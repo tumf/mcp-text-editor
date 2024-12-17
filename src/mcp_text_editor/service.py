@@ -65,7 +65,7 @@ class TextEditorService:
                         result="error",
                         reason="Content hash mismatch",
                         hash=current_hash,
-                        content=current_content,
+                        content=None,
                     )
                 }
 
