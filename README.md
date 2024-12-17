@@ -4,6 +4,8 @@
 
 A Model Context Protocol (MCP) server that provides line-oriented text file editing capabilities through a standardized API. Optimized for LLM tools with efficient partial file access to minimize token usage.
 
+<a href="https://glama.ai/mcp/servers/k44dnvso10"><img width="380" height="200" src="https://glama.ai/mcp/servers/k44dnvso10/badge" alt="mcp-text-editor MCP server" /></a>
+
 ## Quick Start for Claude.app Users
 
 To use this editor with Claude.app, add the following configuration to your prompt:
