@@ -396,7 +396,7 @@ class TextEditor:
                         if actual_range_hash != expected_range_hash:
                             return {
                                 "result": "error",
-                                "reason": f"Content hash mismatch - file has been modified since last read. Please use get_text_file_contents tool with lines {line_start}-{line_end} to get current content and hashes, then retry with the updated hashes. If you want to append content, set line_start to {len(lines)+1}.",
+                                "reason": f"Content hash mismatch - Please use get_text_file_contents tool with lines {line_start}-{line_end} to get current content and hashes, then retry with the updated hashes. If you want to append content, set line_start to {len(lines)+1}.",
                                 "file_hash": None,
                                 "content": current_content,
                             }
