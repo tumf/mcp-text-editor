@@ -394,16 +394,9 @@ class TextEditor:
                     # For non-insertion operations, verify content hash
                     if not is_insertion:
                         if actual_range_hash != expected_range_hash:
-                            print(
-                                f"Debug - Hash mismatch:\n"
-                                f"Expected hash: {expected_range_hash}\n"
-                                f"Actual hash: {actual_range_hash}\n"
-                                f"Content being replaced: {target_content!r}\n"
-                                f"Range: {line_start_zero}:{line_end_zero + 1}"
-                            )
                             return {
                                 "result": "error",
-                                "reason": "Content hash mismatch - file has been modified",
+                                "reason": f"Content hash mismatch - file has been modified since last read. Please use get_text_file_contents tool with lines {line_start}-{line_end} to get current content and hashes, then retry with the updated hashes. Expected: {expected_range_hash}, Actual: {actual_range_hash}. Content: {target_content!r}",
                                 "file_hash": None,
                                 "content": current_content,
                             }
