@@ -367,7 +367,6 @@ async def test_edit_contents_handler_missing_hash(tmp_path):
         ]
     }
 
-    # file_hashが欠けている場合は例外が発生することを確認
     with pytest.raises(RuntimeError) as exc_info:
         await edit_contents_handler.run_tool(edit_args)
     assert "Missing required field: file_hash" in str(exc_info.value)
@@ -455,16 +454,13 @@ async def test_edit_contents_handler_multiple_patches(tmp_path):
         ]
     }
 
-    # 編集を適用
     result = await edit_contents_handler.run_tool(edit_args)
 
-    # 結果の検証
     assert len(result) == 1
     edit_results = json.loads(result[0].text)
     assert file_path in edit_results
     assert edit_results[file_path]["result"] == "ok"
 
-    # ファイルの内容を確認
     with open(file_path) as f:
         content = f.read()
     assert "Modified Line 2" in content
@@ -523,7 +519,6 @@ async def test_edit_contents_relative_path():
 async def test_edit_contents_absolute_path():
     handler = EditTextFileContentsHandler()
     abs_path = str(Path("/absolute/path/file.txt").absolute())
-    # モックを使用して実際のファイル操作を避ける
     handler.editor.edit_file_contents = lambda *args, **kwargs: {"result": "success"}
 
     result = await handler.run_tool(
