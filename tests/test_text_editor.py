@@ -768,3 +768,30 @@ async def test_append_mode(editor, tmp_path):
 
     assert result["result"] == "ok"
     assert test_file.read_text() == original_content + append_content
+
+
+@pytest.mark.asyncio
+async def test_dict_patch_with_defaults(editor: TextEditor, tmp_path):
+    """Test dictionary patch with default values."""
+    test_file = tmp_path / "test.txt"
+    original_content = "line1\nline2\nline3\n"
+    test_file.write_text(original_content)
+
+    # Get first line content and calculate hashes
+    first_line_content, _, _, _, _, _ = await editor.read_file_contents(
+        str(test_file), line_start=1, line_end=1
+    )
+    file_hash = editor.calculate_hash(original_content)
+
+    # Edit using dict patch with missing optional fields
+    patch = {
+        "contents": "new line\n",  # Add newline to maintain file structure
+        "line_start": 1,
+        "line_end": 1,  # Explicitly specify line_end
+        "range_hash": editor.calculate_hash(first_line_content),
+    }
+    result = await editor.edit_file_contents(str(test_file), file_hash, [patch])
+
+    assert result["result"] == "ok"
+    # Should replace line 1 when range_hash is provided
+    assert test_file.read_text() == "new line\nline2\nline3\n"
