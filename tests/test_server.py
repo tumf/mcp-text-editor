@@ -40,8 +40,27 @@ async def test_list_tools():
         (tool for tool in tools if tool.name == "edit_text_file_contents"), None
     )
     assert edit_contents_tool is not None
-    assert "edit" in edit_contents_tool.description.lower()
+    assert "file" in edit_contents_tool.description.lower()
     assert "contents" in edit_contents_tool.description.lower()
+
+
+@pytest.mark.asyncio
+async def test_get_contents_empty_files():
+    """Test get_contents handler with empty files list."""
+    arguments = {"files": []}
+    result = await get_contents_handler.run_tool(arguments)
+    assert len(result) == 1
+    assert result[0].type == "text"
+    # Should return empty JSON object
+    assert json.loads(result[0].text) == {}
+
+
+@pytest.mark.asyncio
+async def test_unknown_tool_handler():
+    """Test handling of unknown tool name."""
+    with pytest.raises(ValueError) as excinfo:
+        await call_tool("unknown_tool", {})
+    assert "Unknown tool: unknown_tool" in str(excinfo.value)
 
 
 @pytest.mark.asyncio
