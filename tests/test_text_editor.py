@@ -11,6 +11,28 @@ def editor():
     return TextEditor()
 
 
+@pytest.mark.asyncio
+async def test_edit_file_with_edit_patch_object(editor, tmp_path):
+    """Test editing a file using EditPatch object."""
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("line1\nline2\nline3\n")
+    file_hash = editor.calculate_hash(test_file.read_text())
+    first_line_content = "line1\n"
+
+    # Create an EditPatch object
+    patch = EditPatch(
+        line_start=1,
+        line_end=1,
+        contents="new line\n",
+        range_hash=editor.calculate_hash(first_line_content),
+    )
+
+    result = await editor.edit_file_contents(str(test_file), file_hash, [patch])
+
+    assert result["result"] == "ok"
+    assert test_file.read_text() == "new line\nline2\nline3\n"
+
+
 @pytest.fixture
 def test_file(tmp_path):
     """Create a temporary test file."""
@@ -794,4 +816,28 @@ async def test_dict_patch_with_defaults(editor: TextEditor, tmp_path):
 
     assert result["result"] == "ok"
     # Should replace line 1 when range_hash is provided
+    assert test_file.read_text() == "new line\nline2\nline3\n"
+
+
+@pytest.mark.asyncio
+async def test_edit_file_without_line_end(editor, tmp_path):
+    """Test editing a file using dictionary patch without line_end."""
+    test_file = tmp_path / "test.txt"
+    content = "line1\nline2\nline3\n"
+    test_file.write_text(content)
+
+    # Create a patch with minimal fields
+    patch = EditPatch(
+        contents="new line\n",
+        line_start=1,
+        line_end=1,  # 明示的にline_endを設定
+        range_hash=editor.calculate_hash("line1\n"),
+    )
+
+    # Calculate file hash from original content
+    file_hash = editor.calculate_hash(content)
+
+    result = await editor.edit_file_contents(str(test_file), file_hash, [patch])
+
+    assert result["result"] == "ok"
     assert test_file.read_text() == "new line\nline2\nline3\n"
