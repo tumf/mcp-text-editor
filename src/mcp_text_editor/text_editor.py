@@ -338,9 +338,6 @@ class TextEditor:
 
                 # Calculate line ranges for zero-based indexing
                 start_zero = start - 1
-                end_zero = (
-                    len(lines) - 1 if end is None else min(end - 1, len(lines) - 1)
-                )
 
                 # Get expected hash for validation
                 expected_range_hash = None
@@ -358,49 +355,30 @@ class TextEditor:
                     # Append mode - start exceeds total lines
                     is_insertion = True
                 else:
-                    # For existing files:
-                    # range_hash is required for modifications
-                    if not expected_range_hash:
-                        return {
-                            "result": "error",
-                            "reason": "range_hash is required for file modifications",
-                            "file_hash": None,
-                            "content": current_content,
-                        }
-
-                    # Hash provided - verify content
-                    target_lines = lines[start_zero : end_zero + 1]
-                    target_content = "".join(target_lines)
-                    actual_range_hash = self.calculate_hash(target_content)
-
-                    # Debug output for hash comparison
-                    print(
-                        f"Debug - Range hash comparison:"
-                        f"\nExpected: {expected_range_hash}"
-                        f"\nActual: {actual_range_hash}"
-                        f"\nContent: {target_content!r}"
-                        f"\nRange: {start_zero}:{end_zero + 1}"
-                    )
-
-                    # Compare hashes
-                    # Empty range_hash means explicit insertion
-                    is_insertion = (
-                        not expected_range_hash
-                        or expected_range_hash == self.calculate_hash("")
-                    )
-
-                    # For non-insertion operations, verify content hash
+                    # For modification mode, check the range_hash
+                    is_insertion = expected_range_hash == ""
                     if not is_insertion:
+                        # Calculate end_zero for content validation
+                        end_zero = (
+                            len(lines) - 1
+                            if end is None
+                            else min(end - 1, len(lines) - 1)
+                        )
+
+                        # Hash provided - verify content
+                        target_lines = lines[start_zero : end_zero + 1]
+                        target_content = "".join(target_lines)
+                        actual_range_hash = self.calculate_hash(target_content)
+
                         if actual_range_hash != expected_range_hash:
                             return {
                                 "result": "error",
-                                "reason": f"Content hash mismatch - Please use get_text_file_contents tool with lines {start}-{end} to get current content and hashes, then retry with the updated hashes. If you want to append content, set start to {len(lines)+1}.",
+                                "reason": "Content range hash mismatch - Please use get_text_file_contents tool to get current content and hashes, then retry with the updated hashes.",
                                 "file_hash": None,
                                 "content": current_content,
                             }
 
                 # Prepare new content
-                contents: str
                 if isinstance(patch, EditPatch):
                     contents = patch.contents
                 else:
@@ -409,18 +387,13 @@ class TextEditor:
                 new_content = contents if contents.endswith("\n") else contents + "\n"
                 new_lines = new_content.splitlines(keepends=True)
 
-                # Apply changes - line ranges were calculated earlier
+                # For insertion mode, we don't need end_zero
                 if is_insertion:
                     # Insert at the specified line
                     lines[start_zero:start_zero] = new_lines
                 else:
-                    # Replace the specified range
+                    # We already have end_zero for replacements
                     lines[start_zero : end_zero + 1] = new_lines
-
-                # Debug output - shows the operation type
-                print(
-                    f"Applied patch: start={start} end={end} is_insertion={is_insertion} contents={patch.contents!r}"
-                )
 
             # Write the final content back to file
             final_content = "".join(lines)

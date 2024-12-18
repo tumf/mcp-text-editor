@@ -51,28 +51,41 @@ def test_get_text_file_contents_response():
 
 def test_edit_patch():
     """Test EditPatch model."""
-    # Test with only required field
-    patch = EditPatch(contents="new content")
-    assert patch.contents == "new content"
-    assert patch.start == 1  # Default value
-    assert patch.end is None  # Default value
+    # Test that range_hash is required
+    with pytest.raises(ValueError, match="range_hash is required"):
+        EditPatch(contents="new content")
+    with pytest.raises(ValueError, match="range_hash is required"):
+        EditPatch(contents="new content", start=1)
 
-    # Test with all fields
-    patch = EditPatch(start=5, end=10, contents="new content")
+    # Test append mode with empty range_hash
+    patch = EditPatch(contents="new content", start=1, range_hash="")
+    assert patch.contents == "new content"
+    assert patch.start == 1
+    assert patch.end is None
+
+    # Test modification mode (requires end when range_hash is present)
+    patch = EditPatch(start=5, end=10, contents="new content", range_hash="somehash")
     assert patch.start == 5
     assert patch.end == 10
     assert patch.contents == "new content"
+    assert patch.range_hash == "somehash"
 
     # Test validation error - missing required field
     with pytest.raises(ValidationError):
         EditPatch()
 
+    # Test validation error - missing end in modification mode
+    with pytest.raises(
+        ValueError, match="end line is required when not in append mode"
+    ):
+        EditPatch(start=1, contents="content", range_hash="somehash")
+
 
 def test_edit_file_operation():
     """Test EditFileOperation model."""
     patches = [
-        EditPatch(contents="content1"),
-        EditPatch(start=2, end=3, contents="content2"),
+        EditPatch(contents="content1", range_hash=""),  # append mode
+        EditPatch(start=2, end=3, contents="content2", range_hash="somehash"),
     ]
     operation = EditFileOperation(
         path="/path/to/file.txt", hash="hash123", patches=patches
@@ -81,7 +94,9 @@ def test_edit_file_operation():
     assert operation.hash == "hash123"
     assert len(operation.patches) == 2
     assert operation.patches[0].contents == "content1"
+    assert operation.patches[0].range_hash == ""  # append mode
     assert operation.patches[1].start == 2
+    assert operation.patches[1].range_hash == "somehash"  # modification mode
 
     # Test validation error - missing required fields
     with pytest.raises(ValidationError):
@@ -123,7 +138,7 @@ def test_edit_text_file_contents_request():
             EditFileOperation(
                 path="/path/to/file.txt",
                 hash="hash123",
-                patches=[EditPatch(contents="new content")],
+                patches=[EditPatch(contents="new content", range_hash="")],
             )
         ]
     )
@@ -139,12 +154,12 @@ def test_edit_text_file_contents_request():
             EditFileOperation(
                 path="/path/to/file1.txt",
                 hash="hash123",
-                patches=[EditPatch(contents="content1")],
+                patches=[EditPatch(contents="content1", range_hash="")],
             ),
             EditFileOperation(
                 path="/path/to/file2.txt",
                 hash="hash456",
-                patches=[EditPatch(start=2, contents="content2")],
+                patches=[EditPatch(start=2, contents="content2", range_hash="")],
             ),
         ]
     )

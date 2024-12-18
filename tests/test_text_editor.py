@@ -52,7 +52,7 @@ async def test_directory_creation_error(editor, tmp_path, mocker):
     mocker.patch("os.makedirs", side_effect=OSError("Permission denied"))
 
     result = await editor.edit_file_contents(
-        str(test_file), "", [EditPatch(contents="test content\n")]
+        str(test_file), "", [EditPatch(contents="test content\n", range_hash="")]
     )
 
     assert result["result"] == "error"
@@ -66,12 +66,12 @@ async def test_missing_range_hash(editor, test_file):
     _, _, _, file_hash, _, _ = await editor.read_file_contents(test_file)
 
     # Try to edit without range_hash
-    patches = [EditPatch(start=2, end=2, contents="New content\n")]
-    result = await editor.edit_file_contents(test_file, file_hash, patches)
+    with pytest.raises(ValueError, match="range_hash is required"):
+        EditPatch(start=2, end=2, contents="New content\n", range_hash=None)
 
-    assert result["result"] == "error"
-    assert "range_hash is required" in result["reason"].lower()
-    assert result["file_hash"] is None
+    with pytest.raises(ValueError, match="range_hash is required"):
+        # Trying with missing range_hash field should also raise
+        EditPatch(start=2, end=2, contents="New content\n")
 
 
 @pytest.fixture
@@ -157,7 +157,9 @@ async def test_create_new_file(editor, tmp_path):
     result = await editor.edit_file_contents(
         str(new_file),
         "",  # No hash for new file
-        [{"start": 1, "contents": content, "range_hash": None}],
+        [
+            {"start": 1, "contents": content, "range_hash": ""}
+        ],  # Empty range_hash for new files
     )
     assert result["result"] == "ok"
     assert new_file.read_text() == content
@@ -205,7 +207,9 @@ async def test_create_file_in_new_directory(editor, tmp_path):
     result = await editor.edit_file_contents(
         str(new_file),
         "",  # No hash for new file
-        [{"start": 1, "contents": content, "range_hash": None}],
+        [
+            {"start": 1, "contents": content, "range_hash": ""}
+        ],  # Empty range_hash for new file
     )
 
     assert result["result"] == "ok"
@@ -319,8 +323,8 @@ async def test_empty_content_handling(editor, tmp_path):
         str(test_file),
         "",  # No hash for empty file
         [
-            {"line_start": 1, "contents": "New content\n", "range_hash": None}
-        ],  # No range hash needed for new files
+            {"line_start": 1, "contents": "New content\n", "range_hash": ""}
+        ],  # Empty range_hash for new files
     )
 
     assert result["result"] == "ok"
@@ -443,6 +447,7 @@ async def test_create_file_with_empty_directory(editor, tmp_path):
             {
                 "start": 1,
                 "contents": "test content\n",
+                "range_hash": "",  # Empty range_hash for new files
             }
         ],
     )
@@ -471,6 +476,7 @@ async def test_file_write_permission_error(editor, tmp_path):
         [
             {
                 "start": 1,
+                "end": 1,
                 "contents": "new content\n",
                 "range_hash": editor.calculate_hash("original content\n"),
             }
@@ -509,7 +515,7 @@ async def test_edit_file_with_none_line_end(editor, tmp_path):
         [
             {
                 "start": 2,
-                "end": None,  # This should replace from line 2 to end
+                "end": 3,  # Replace lines 2 and 3
                 "contents": "new2\nnew3\n",
                 "range_hash": editor.calculate_hash("line2\nline3\n"),
             }
@@ -683,9 +689,9 @@ async def test_insert_operation(editor, tmp_path):
         [
             {
                 "start": 2,
-                "end": None,
+                "end": None,  # For insertion mode (empty range_hash), end is optional
                 "contents": "new line\n",
-                "range_hash": editor.calculate_hash(""),
+                "range_hash": "",  # Empty range_hash means insertion mode
             }
         ],
     )
@@ -783,7 +789,7 @@ async def test_append_mode(editor, tmp_path):
             {
                 "start": total_lines + 1,  # Start beyond current line count
                 "contents": append_content,
-                # No end or range_hash needed for append mode
+                "range_hash": "",  # Empty range_hash for append mode
             }
         ],
     )

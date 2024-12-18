@@ -2,7 +2,7 @@
 
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class GetTextFileContentsRequest(BaseModel):
@@ -29,8 +29,21 @@ class EditPatch(BaseModel):
     end: Optional[int] = Field(None, description="Ending line for edit")
     contents: str = Field(..., description="New content to insert")
     range_hash: Optional[str] = Field(
-        None, description="Hash of content being replaced. None for insertions"
+        None,  # None for new patches, must be explicitly set
+        description="Hash of content being replaced. Empty string for insertions.",
     )
+
+    @model_validator(mode="after")
+    def validate_end_line(self) -> "EditPatch":
+        """Validate that end line is present when not in append mode."""
+        # range_hash must be explicitly set
+        if self.range_hash is None:
+            raise ValueError("range_hash is required")
+
+        # For modifications (non-empty range_hash), end is required
+        if self.range_hash != "" and self.end is None:
+            raise ValueError("end line is required when not in append mode")
+        return self
 
 
 class EditFileOperation(BaseModel):
