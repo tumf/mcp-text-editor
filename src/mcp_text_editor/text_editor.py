@@ -1,10 +1,13 @@
 """Core text editor functionality with file operation handling."""
 
 import hashlib
+import logging
 import os
 from typing import Any, Dict, List, Optional, Tuple
 
 from mcp_text_editor.models import EditPatch, FileRanges
+
+logger = logging.getLogger(__name__)
 
 
 class TextEditor:
@@ -426,8 +429,8 @@ class TextEditor:
         except Exception as e:
             import traceback
 
-            print(f"Error: {str(e)}")
-            print(f"Traceback:\n{traceback.format_exc()}")
+            logger.error(f"Error: {str(e)}")
+            logger.error(f"Traceback:\n{traceback.format_exc()}")
             return {
                 "result": "error",
                 "reason": "Unexpected error occurred",
