@@ -100,21 +100,21 @@ class TextEditor:
             result[file_path] = {"ranges": [], "file_hash": file_hash}
 
             for range_spec in file_range.ranges:
-                line_start = max(1, range_spec.start) - 1
+                start = max(1, range_spec.start) - 1
                 end_value = range_spec.end
-                line_end = (
+                end = (
                     min(total_lines, end_value)
                     if end_value is not None
                     else total_lines
                 )
 
-                if line_start >= total_lines:
+                if start >= total_lines:
                     empty_content = ""
                     result[file_path]["ranges"].append(
                         {
                             "content": empty_content,
-                            "start_line": line_start + 1,
-                            "end_line": line_start + 1,
+                            "start": start + 1,
+                            "end": start + 1,
                             "range_hash": self.calculate_hash(empty_content),
                             "total_lines": total_lines,
                             "content_size": 0,
@@ -122,15 +122,15 @@ class TextEditor:
                     )
                     continue
 
-                selected_lines = lines[line_start:line_end]
+                selected_lines = lines[start:end]
                 content = "".join(selected_lines)
                 range_hash = self.calculate_hash(content)
 
                 result[file_path]["ranges"].append(
                     {
                         "content": content,
-                        "start_line": line_start + 1,
-                        "end_line": line_end,
+                        "start": start + 1,
+                        "end": end,
                         "range_hash": range_hash,
                         "total_lines": total_lines,
                         "content_size": len(content),
@@ -142,36 +142,36 @@ class TextEditor:
     async def read_file_contents(
         self,
         file_path: str,
-        line_start: int = 1,
-        line_end: Optional[int] = None,
+        start: int = 1,
+        end: Optional[int] = None,
         encoding: str = "utf-8",
     ) -> Tuple[str, int, int, str, int, int]:
         lines, file_content, total_lines = await self._read_file(
             file_path, encoding=encoding
         )
 
-        if line_end is not None and line_end < line_start:
+        if end is not None and end < start:
             raise ValueError("End line must be greater than or equal to start line")
 
-        line_start = max(1, line_start) - 1
-        line_end = total_lines if line_end is None else min(line_end, total_lines)
+        start = max(1, start) - 1
+        end = total_lines if end is None else min(end, total_lines)
 
-        if line_start >= total_lines:
+        if start >= total_lines:
             empty_content = ""
             empty_hash = self.calculate_hash(empty_content)
-            return empty_content, line_start, line_start, empty_hash, total_lines, 0
-        if line_end < line_start:
+            return empty_content, start, start, empty_hash, total_lines, 0
+        if end < start:
             raise ValueError("End line must be greater than or equal to start line")
 
-        selected_lines = lines[line_start:line_end]
+        selected_lines = lines[start:end]
         content = "".join(selected_lines)
         content_hash = self.calculate_hash(content)
         content_size = len(content.encode(encoding))
 
         return (
             content,
-            line_start + 1,
-            line_end,
+            start + 1,
+            end,
             content_hash,
             total_lines,
             content_size,
@@ -191,8 +191,8 @@ class TextEditor:
             file_path (str): Path to the file to edit
             expected_hash (str): Expected hash of the file before editing
             patches (List[EditPatch]): List of patches to apply
-                - line_start (int): Starting line number (1-based, optional, default: 1)
-                - line_end (Optional[int]): Ending line number (inclusive)
+                - start (int): Starting line number (1-based, optional, default: 1)
+                - end (Optional[int]): Ending line number (inclusive)
                 - contents (str): New content to insert
         Edit file contents with hash-based conflict detection and multiple patches (supporting new file creation).
 
@@ -200,8 +200,8 @@ class TextEditor:
             file_path (str): Path to the file to edit (parent directories are created automatically)
             expected_hash (str): Expected hash of the file before editing (empty string for new files)
             patches (List[Dict[str, Any]]): List of patches to apply, each containing:
-                - line_start (int): Starting line number (1-based)
-                - line_end (Optional[int]): Ending line number (inclusive)
+                - start (int): Starting line number (1-based)
+                - end (Optional[int]): Ending line number (inclusive)
                 - contents (str): New content to insert
                 - range_hash (str): Expected hash of the content being replaced
 
@@ -263,9 +263,9 @@ class TextEditor:
                 elif current_hash != expected_hash:
                     return {
                         "result": "error",
-                        "reason": "Hash mismatch - file has been modified",
+                        "reason": "FileHash mismatch - Please use get_text_file_contents tool to get current content and hashes, then retry with the updated hashes.",
                         "file_hash": None,
-                        "content": current_content,
+                        "content": None,
                     }
                 else:
                     lines = current_content.splitlines(keepends=True)
@@ -277,8 +277,8 @@ class TextEditor:
             sorted_patches = sorted(
                 patch_objects,
                 key=lambda x: (
-                    -(x.line_start),
-                    -(x.line_end or x.line_start or float("inf")),
+                    -(x.start),
+                    -(x.end or x.start or float("inf")),
                 ),
             )
 
@@ -287,10 +287,10 @@ class TextEditor:
                 for j in range(i + 1, len(sorted_patches)):
                     patch1 = sorted_patches[i]
                     patch2 = sorted_patches[j]
-                    start1 = patch1.line_start
-                    end1 = patch1.line_end or start1
-                    start2 = patch2.line_start
-                    end2 = patch2.line_end or start2
+                    start1 = patch1.start
+                    end1 = patch1.end or start1
+                    start2 = patch2.start
+                    end2 = patch2.end or start2
 
                     if (start1 <= end2 and end1 >= start2) or (
                         start2 <= end1 and end2 >= start1
@@ -299,23 +299,23 @@ class TextEditor:
                             "result": "error",
                             "reason": "Overlapping patches detected",
                             "hash": None,
-                            "content": current_content,
+                            "content": None,
                         }
 
             # Apply patches
             for patch in sorted_patches:
                 # Get line numbers (1-based)
-                line_start: int
-                line_end: Optional[int]
+                start: int
+                end: Optional[int]
                 if isinstance(patch, EditPatch):
-                    line_start = patch.line_start
-                    line_end = patch.line_end
+                    start = patch.start
+                    end = patch.end
                 else:
-                    line_start = patch["line_start"] if "line_start" in patch else 1
-                    line_end = patch["line_end"] if "line_end" in patch else line_start
+                    start = patch["start"] if "start" in patch else 1
+                    end = patch["end"] if "end" in patch else start
 
                 # Check for invalid line range
-                if line_end is not None and line_end < line_start:
+                if end is not None and end < start:
                     return {
                         "result": "error",
                         "reason": "End line must be greater than or equal to start line",
@@ -333,15 +333,13 @@ class TextEditor:
                         "result": "error",
                         "reason": "Unexpected error",
                         "file_hash": None,
-                        "content": current_content,
+                        "content": None,
                     }
 
                 # Calculate line ranges for zero-based indexing
-                line_start_zero = line_start - 1
-                line_end_zero = (
-                    len(lines) - 1
-                    if line_end is None
-                    else min(line_end - 1, len(lines) - 1)
+                start_zero = start - 1
+                end_zero = (
+                    len(lines) - 1 if end is None else min(end - 1, len(lines) - 1)
                 )
 
                 # Get expected hash for validation
@@ -356,8 +354,8 @@ class TextEditor:
                 if not os.path.exists(file_path) or not current_content:
                     # New file or empty file - treat as insertion
                     is_insertion = True
-                elif line_start_zero >= len(lines):
-                    # Append mode - line_start exceeds total lines
+                elif start_zero >= len(lines):
+                    # Append mode - start exceeds total lines
                     is_insertion = True
                 else:
                     # For existing files:
@@ -371,7 +369,7 @@ class TextEditor:
                         }
 
                     # Hash provided - verify content
-                    target_lines = lines[line_start_zero : line_end_zero + 1]
+                    target_lines = lines[start_zero : end_zero + 1]
                     target_content = "".join(target_lines)
                     actual_range_hash = self.calculate_hash(target_content)
 
@@ -381,7 +379,7 @@ class TextEditor:
                         f"\nExpected: {expected_range_hash}"
                         f"\nActual: {actual_range_hash}"
                         f"\nContent: {target_content!r}"
-                        f"\nRange: {line_start_zero}:{line_end_zero + 1}"
+                        f"\nRange: {start_zero}:{end_zero + 1}"
                     )
 
                     # Compare hashes
@@ -396,7 +394,7 @@ class TextEditor:
                         if actual_range_hash != expected_range_hash:
                             return {
                                 "result": "error",
-                                "reason": f"Content hash mismatch - Please use get_text_file_contents tool with lines {line_start}-{line_end} to get current content and hashes, then retry with the updated hashes. If you want to append content, set line_start to {len(lines)+1}.",
+                                "reason": f"Content hash mismatch - Please use get_text_file_contents tool with lines {start}-{end} to get current content and hashes, then retry with the updated hashes. If you want to append content, set start to {len(lines)+1}.",
                                 "file_hash": None,
                                 "content": current_content,
                             }
@@ -414,14 +412,14 @@ class TextEditor:
                 # Apply changes - line ranges were calculated earlier
                 if is_insertion:
                     # Insert at the specified line
-                    lines[line_start_zero:line_start_zero] = new_lines
+                    lines[start_zero:start_zero] = new_lines
                 else:
                     # Replace the specified range
-                    lines[line_start_zero : line_end_zero + 1] = new_lines
+                    lines[start_zero : end_zero + 1] = new_lines
 
                 # Debug output - shows the operation type
                 print(
-                    f"Applied patch: line_start={line_start} line_end={line_end} is_insertion={is_insertion} contents={patch.contents!r}"
+                    f"Applied patch: start={start} end={end} is_insertion={is_insertion} contents={patch.contents!r}"
                 )
 
             # Write the final content back to file

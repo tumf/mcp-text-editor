@@ -20,16 +20,14 @@ def test_get_text_file_contents_request():
     # Test with only required field
     request = GetTextFileContentsRequest(file_path="/path/to/file.txt")
     assert request.file_path == "/path/to/file.txt"
-    assert request.line_start == 1  # Default value
-    assert request.line_end is None  # Default value
+    assert request.start == 1  # Default value
+    assert request.end is None  # Default value
 
     # Test with all fields
-    request = GetTextFileContentsRequest(
-        file_path="/path/to/file.txt", line_start=5, line_end=10
-    )
+    request = GetTextFileContentsRequest(file_path="/path/to/file.txt", start=5, end=10)
     assert request.file_path == "/path/to/file.txt"
-    assert request.line_start == 5
-    assert request.line_end == 10
+    assert request.start == 5
+    assert request.end == 10
 
     # Test validation error - missing required field
     with pytest.raises(ValidationError):
@@ -39,11 +37,11 @@ def test_get_text_file_contents_request():
 def test_get_text_file_contents_response():
     """Test GetTextFileContentsResponse model."""
     response = GetTextFileContentsResponse(
-        contents="file content", line_start=1, line_end=10, hash="hash123"
+        contents="file content", start=1, end=10, hash="hash123"
     )
     assert response.contents == "file content"
-    assert response.line_start == 1
-    assert response.line_end == 10
+    assert response.start == 1
+    assert response.end == 10
     assert response.hash == "hash123"
 
     # Test validation error - missing required fields
@@ -56,13 +54,13 @@ def test_edit_patch():
     # Test with only required field
     patch = EditPatch(contents="new content")
     assert patch.contents == "new content"
-    assert patch.line_start == 1  # Default value
-    assert patch.line_end is None  # Default value
+    assert patch.start == 1  # Default value
+    assert patch.end is None  # Default value
 
     # Test with all fields
-    patch = EditPatch(line_start=5, line_end=10, contents="new content")
-    assert patch.line_start == 5
-    assert patch.line_end == 10
+    patch = EditPatch(start=5, end=10, contents="new content")
+    assert patch.start == 5
+    assert patch.end == 10
     assert patch.contents == "new content"
 
     # Test validation error - missing required field
@@ -74,7 +72,7 @@ def test_edit_file_operation():
     """Test EditFileOperation model."""
     patches = [
         EditPatch(contents="content1"),
-        EditPatch(line_start=2, line_end=3, contents="content2"),
+        EditPatch(start=2, end=3, contents="content2"),
     ]
     operation = EditFileOperation(
         path="/path/to/file.txt", hash="hash123", patches=patches
@@ -83,7 +81,7 @@ def test_edit_file_operation():
     assert operation.hash == "hash123"
     assert len(operation.patches) == 2
     assert operation.patches[0].contents == "content1"
-    assert operation.patches[1].line_start == 2
+    assert operation.patches[1].start == 2
 
     # Test validation error - missing required fields
     with pytest.raises(ValidationError):
@@ -101,19 +99,16 @@ def test_edit_result():
     assert result.result == "ok"
     assert result.hash == "newhash123"
     assert result.reason is None
-    assert result.content is None
 
-    # Test error result with reason and content
+    # Test error result with reason
     result = EditResult(
         result="error",
         reason="hash mismatch",
         hash="currenthash123",
-        content="current content",
     )
     assert result.result == "error"
     assert result.reason == "hash mismatch"
     assert result.hash == "currenthash123"
-    assert result.content == "current content"
 
     # Test validation error - missing required fields
     with pytest.raises(ValidationError):
@@ -149,7 +144,7 @@ def test_edit_text_file_contents_request():
             EditFileOperation(
                 path="/path/to/file2.txt",
                 hash="hash456",
-                patches=[EditPatch(line_start=2, contents="content2")],
+                patches=[EditPatch(start=2, contents="content2")],
             ),
         ]
     )
@@ -171,7 +166,6 @@ def test_edit_result_to_dict():
         "result": "ok",
         "hash": "newhash123",
         "reason": None,
-        "content": None,
     }
 
     # Test error result
@@ -179,14 +173,12 @@ def test_edit_result_to_dict():
         result="error",
         reason="hash mismatch",
         hash="currenthash123",
-        content="current content",
     )
     result_dict = result.to_dict()
     assert result_dict == {
         "result": "error",
         "reason": "hash mismatch",
         "hash": "currenthash123",
-        "content": "current content",
     }
 
 

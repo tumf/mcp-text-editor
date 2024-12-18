@@ -40,8 +40,27 @@ async def test_list_tools():
         (tool for tool in tools if tool.name == "edit_text_file_contents"), None
     )
     assert edit_contents_tool is not None
-    assert "edit" in edit_contents_tool.description.lower()
+    assert "file" in edit_contents_tool.description.lower()
     assert "contents" in edit_contents_tool.description.lower()
+
+
+@pytest.mark.asyncio
+async def test_get_contents_empty_files():
+    """Test get_contents handler with empty files list."""
+    arguments = {"files": []}
+    result = await get_contents_handler.run_tool(arguments)
+    assert len(result) == 1
+    assert result[0].type == "text"
+    # Should return empty JSON object
+    assert json.loads(result[0].text) == {}
+
+
+@pytest.mark.asyncio
+async def test_unknown_tool_handler():
+    """Test handling of unknown tool name."""
+    with pytest.raises(ValueError) as excinfo:
+        await call_tool("unknown_tool", {})
+    assert "Unknown tool: unknown_tool" in str(excinfo.value)
 
 
 @pytest.mark.asyncio
@@ -69,8 +88,8 @@ async def test_get_contents_handler(test_file):
     assert test_file in content
     range_result = content[test_file]["ranges"][0]
     assert "content" in range_result
-    assert "start_line" in range_result
-    assert "end_line" in range_result
+    assert "start" in range_result
+    assert "end" in range_result
     assert "file_hash" in content[test_file]
     assert "total_lines" in range_result
     assert "content_size" in range_result
@@ -113,8 +132,8 @@ async def test_edit_contents_handler(test_file):
                 "file_hash": initial_hash,
                 "patches": [
                     {
-                        "line_start": 2,
-                        "line_end": 2,
+                        "start": 2,
+                        "end": 2,
                         "contents": "Modified Line 2\n",
                         "range_hash": range_hash,
                     }
@@ -142,8 +161,8 @@ async def test_call_tool_get_contents(test_file):
     assert test_file in content
     range_result = content[test_file]["ranges"][0]
     assert "content" in range_result
-    assert "start_line" in range_result
-    assert "end_line" in range_result
+    assert "start" in range_result
+    assert "end" in range_result
     assert "file_hash" in content[test_file]
     assert "total_lines" in range_result
     assert "content_size" in range_result
@@ -215,8 +234,8 @@ async def test_edit_contents_handler_multiple_files(tmp_path):
                 "file_hash": file_hash,
                 "patches": [
                     {
-                        "line_start": 2,
-                        "line_end": 2,
+                        "start": 2,
+                        "end": 2,
                         "contents": "Modified Line 2\n",
                         "range_hash": range_hash,
                     }
@@ -268,8 +287,8 @@ async def test_edit_contents_handler_partial_failure(tmp_path):
                 "file_hash": valid_hash,
                 "patches": [
                     {
-                        "line_start": 2,
-                        "line_end": 2,
+                        "start": 2,
+                        "end": 2,
                         "contents": "Modified Line 2\n",
                         "range_hash": valid_range_hash,
                     }
@@ -438,14 +457,14 @@ async def test_edit_contents_handler_multiple_patches(tmp_path):
                 "file_hash": file_hash,
                 "patches": [
                     {
-                        "line_start": 2,
-                        "line_end": 2,
+                        "start": 2,
+                        "end": 2,
                         "contents": "Modified Line 2\n",
                         "range_hash": range_hashes[0],
                     },
                     {
-                        "line_start": 4,
-                        "line_end": 4,
+                        "start": 4,
+                        "end": 4,
                         "contents": "Modified Line 4\n",
                         "range_hash": range_hashes[1],
                     },
