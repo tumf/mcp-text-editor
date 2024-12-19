@@ -249,6 +249,103 @@ class EditTextFileContentsHandler:
             raise RuntimeError(f"Error processing request: {str(e)}") from e
 
 
+class PatchTextFileContentsHandler:
+    """Handler for patching a text file."""
+
+    name = "patch_text_file_contents"
+    description = "Apply patches to text files with hash-based validation for concurrency control."
+
+    def __init__(self):
+        self.editor = TextEditor()
+
+    def get_tool_description(self) -> Tool:
+        """Get the tool description."""
+        return Tool(
+            name=self.name,
+            description=self.description,
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Path to the text file. File path must be absolute.",
+                    },
+                    "file_hash": {
+                        "type": "string",
+                        "description": "Hash of the file contents for concurrency control.",
+                    },
+                    "patches": {
+                        "type": "array",
+                        "description": "List of patches to apply",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "start": {
+                                    "type": "integer",
+                                    "description": "Starting line number (1-based)",
+                                },
+                                "end": {
+                                    "type": ["integer", "null"],
+                                    "description": "Ending line number (null for end of file)",
+                                },
+                                "contents": {
+                                    "type": "string",
+                                    "description": "New content to replace the range with",
+                                },
+                                "range_hash": {
+                                    "type": "string",
+                                    "description": "Hash of the content being replaced",
+                                },
+                            },
+                            "required": ["start", "contents", "range_hash"],
+                        },
+                    },
+                    "encoding": {
+                        "type": "string",
+                        "description": "Text encoding (default: 'utf-8')",
+                        "default": "utf-8",
+                    },
+                },
+                "required": ["file_path", "file_hash", "patches"],
+            },
+        )
+
+    async def run_tool(self, arguments: Dict[str, Any]) -> Sequence[TextContent]:
+        """Execute the tool with given arguments."""
+        try:
+            if "file_path" not in arguments:
+                raise RuntimeError("Missing required argument: file_path")
+            if "file_hash" not in arguments:
+                raise RuntimeError("Missing required argument: file_hash")
+            if "patches" not in arguments:
+                raise RuntimeError("Missing required argument: patches")
+
+            file_path = arguments["file_path"]
+            if not os.path.isabs(file_path):
+                raise RuntimeError(f"File path must be absolute: {file_path}")
+
+            # Check if file exists
+            if not os.path.exists(file_path):
+                raise RuntimeError(f"File does not exist: {file_path}")
+
+            encoding = arguments.get("encoding", "utf-8")
+
+            # Apply patches using editor.edit_file_contents
+            result = await self.editor.edit_file_contents(
+                file_path=file_path,
+                expected_hash=arguments["file_hash"],
+                patches=arguments["patches"],
+                encoding=encoding,
+            )
+
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        except Exception as e:
+            logger.error(f"Error processing request: {str(e)}")
+            logger.error(traceback.format_exc())
+            raise RuntimeError(f"Error processing request: {str(e)}") from e
+
+
 class CreateTextFileHandler:
     """Handler for creating a new text file."""
 
@@ -611,7 +708,6 @@ class InsertTextFileContentsHandler:
                 line_number=line_number,
                 encoding=encoding,
             )
-
             return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
         except Exception as e:
@@ -627,6 +723,7 @@ create_file_handler = CreateTextFileHandler()
 append_file_handler = AppendTextFileContentsHandler()
 delete_contents_handler = DeleteTextFileContentsHandler()
 insert_file_handler = InsertTextFileContentsHandler()
+patch_file_handler = PatchTextFileContentsHandler()
 
 
 @app.list_tools()
@@ -639,6 +736,7 @@ async def list_tools() -> List[Tool]:
         append_file_handler.get_tool_description(),
         delete_contents_handler.get_tool_description(),
         insert_file_handler.get_tool_description(),
+        patch_file_handler.get_tool_description(),
     ]
 
 
@@ -659,6 +757,8 @@ async def call_tool(name: str, arguments: Any) -> Sequence[TextContent]:
             return await delete_contents_handler.run_tool(arguments)
         elif name == insert_file_handler.name:
             return await insert_file_handler.run_tool(arguments)
+        elif name == patch_file_handler.name:
+            return await patch_file_handler.run_tool(arguments)
         else:
             raise ValueError(f"Unknown tool: {name}")
     except ValueError:
