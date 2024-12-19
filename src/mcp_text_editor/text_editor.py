@@ -225,7 +225,6 @@ class TextEditor:
                     return {
                         "result": "error",
                         "reason": "File not found and non-empty hash provided",
-                        "file_hash": None,
                         "content": None,
                     }
                 # Create parent directories if they don't exist
@@ -237,7 +236,6 @@ class TextEditor:
                         return {
                             "result": "error",
                             "reason": f"Failed to create directory: {str(e)}",
-                            "file_hash": None,
                             "content": None,
                         }
                 # Initialize empty state for new file
@@ -267,7 +265,6 @@ class TextEditor:
                     return {
                         "result": "error",
                         "reason": "FileHash mismatch - Please use get_text_file_contents tool to get current content and hashes, then retry with the updated hashes.",
-                        "file_hash": None,
                         "content": None,
                     }
                 else:
@@ -377,7 +374,6 @@ class TextEditor:
                             return {
                                 "result": "error",
                                 "reason": "Content range hash mismatch - Please use get_text_file_contents tool to get current content and hashes, then retry with the updated hashes.",
-                                "file_hash": None,
                                 "content": current_content,
                             }
 
@@ -423,7 +419,6 @@ class TextEditor:
             return {
                 "result": "error",
                 "reason": f"Error editing file: {str(e)}",
-                "file_hash": None,
                 "content": None,
             }
         except Exception as e:
@@ -434,6 +429,5 @@ class TextEditor:
             return {
                 "result": "error",
                 "reason": "Unexpected error occurred",
-                "file_hash": None,
                 "content": None,
             }

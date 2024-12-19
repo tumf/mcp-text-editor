@@ -314,7 +314,7 @@ async def test_edit_contents_handler_partial_failure(tmp_path):
     nonexistent_path = str(tmp_path / "nonexistent.txt")
     assert edit_results[nonexistent_path]["result"] == "error"
     assert "File not found" in edit_results[nonexistent_path]["reason"]
-    assert edit_results[nonexistent_path]["file_hash"] is None
+    assert "file_hash" not in edit_results[nonexistent_path]
 
 
 @pytest.mark.asyncio
