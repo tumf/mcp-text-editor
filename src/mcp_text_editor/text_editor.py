@@ -431,3 +431,223 @@ class TextEditor:
                 "reason": "Unexpected error occurred",
                 "content": None,
             }
+
+    async def insert_text_file_contents(
+        self,
+        file_path: str,
+        file_hash: str,
+        contents: str,
+        after: Optional[int] = None,
+        before: Optional[int] = None,
+        encoding: str = "utf-8",
+    ) -> Dict[str, Any]:
+        """Insert text content before or after a specific line in a file.
+
+        Args:
+            file_path (str): Path to the file to edit
+            file_hash (str): Expected hash of the file before editing
+            contents (str): Content to insert
+            after (Optional[int]): Line number after which to insert content
+            before (Optional[int]): Line number before which to insert content
+            encoding (str, optional): File encoding. Defaults to "utf-8"
+
+        Returns:
+            Dict[str, Any]: Results containing:
+                - result: "ok" or "error"
+                - hash: New file hash if successful
+                - reason: Error message if result is "error"
+        """
+        if (after is None and before is None) or (
+            after is not None and before is not None
+        ):
+            return {
+                "result": "error",
+                "reason": "Exactly one of 'after' or 'before' must be specified",
+                "hash": None,
+            }
+
+        try:
+            current_content, _, _, current_hash, total_lines, _ = (
+                await self.read_file_contents(
+                    file_path,
+                    encoding=encoding,
+                )
+            )
+
+            if current_hash != file_hash:
+                return {
+                    "result": "error",
+                    "reason": "File hash mismatch - Please use get_text_file_contents tool to get current content and hash",
+                    "hash": None,
+                }
+
+            # Split into lines, preserving line endings
+            lines = current_content.splitlines(keepends=True)
+
+            # Determine insertion point
+            if after is not None:
+                if after > total_lines:
+                    return {
+                        "result": "error",
+                        "reason": f"Line number {after} is beyond end of file (total lines: {total_lines})",
+                        "hash": None,
+                    }
+                insert_pos = after
+            else:  # before must be set due to earlier validation
+                assert before is not None
+                if before > total_lines + 1:
+                    return {
+                        "result": "error",
+                        "reason": f"Line number {before} is beyond end of file (total lines: {total_lines})",
+                        "hash": None,
+                    }
+                insert_pos = before - 1
+
+            # Ensure content ends with newline
+            if not contents.endswith("\n"):
+                contents += "\n"
+
+            # Insert the content
+            lines.insert(insert_pos, contents)
+
+            # Join lines and write back to file
+            final_content = "".join(lines)
+            with open(file_path, "w", encoding=encoding) as f:
+                f.write(final_content)
+
+            # Calculate new hash
+            new_hash = self.calculate_hash(final_content)
+
+            return {
+                "result": "ok",
+                "hash": new_hash,
+                "reason": None,
+            }
+
+        except FileNotFoundError:
+            return {
+                "result": "error",
+                "reason": f"File not found: {file_path}",
+                "hash": None,
+            }
+        except Exception as e:
+            return {
+                "result": "error",
+                "reason": str(e),
+                "hash": None,
+            }
+
+    async def delete_text_file_contents(
+        self,
+        file_path: str,
+        file_hash: str,
+        range_hash: str,
+        start_line: int,
+        end_line: int,
+        encoding: str = "utf-8",
+    ) -> Dict[str, Any]:
+        """Delete lines from a text file.
+
+        Args:
+            file_path (str): Path to the text file
+            file_hash (str): Expected hash of the file before editing
+            range_hash (str): Expected hash of the range to be deleted
+            start_line (int): Starting line number (1-based)
+            end_line (int): Ending line number (inclusive)
+            encoding (str, optional): File encoding. Defaults to "utf-8".
+
+        Returns:
+            Dict[str, Any]: Results containing:
+                - result: "ok" or "error"
+                - hash: New file hash if successful
+                - reason: Error message if result is "error"
+        """
+        # Check required parameters
+        if not file_path:
+            raise RuntimeError("Missing required argument: file_path")
+        if not file_hash:
+            raise RuntimeError("Missing required argument: file_hash")
+        if not range_hash:
+            raise RuntimeError("Missing required argument: range_hash")
+
+        # Validate file path
+        if not os.path.isabs(file_path):
+            raise RuntimeError("File path must be absolute")
+        if not os.path.exists(file_path):
+            raise RuntimeError("File does not exist")
+
+        try:
+            # Read current content and verify hash
+            content, _, _, current_hash, total_lines, _ = await self.read_file_contents(
+                file_path=file_path,
+                encoding=encoding,
+            )
+
+            if current_hash != file_hash:
+                return {
+                    "result": "error",
+                    "reason": "File hash mismatch - Please use get_text_file_contents tool to get current content and hash",
+                    "file_hash": None,
+                }
+
+            # Validate line range
+            if end_line < start_line:
+                return {
+                    "result": "error",
+                    "reason": "End line must be greater than or equal to start line",
+                    "file_hash": None,
+                }
+
+            if start_line > total_lines or end_line > total_lines:
+                return {
+                    "result": "error",
+                    "reason": "Line number out of range",
+                    "file_hash": None,
+                }
+
+            # Verify range hash
+            range_content = await self.read_file_contents(
+                file_path=file_path,
+                start=start_line,
+                end=end_line,
+                encoding=encoding,
+            )
+            if self.calculate_hash(range_content[0]) != range_hash:
+                return {
+                    "result": "error",
+                    "reason": "Range hash mismatch - Please use get_text_file_contents tool to get current content and hashes",
+                    "file_hash": None,
+                }
+
+            # Split into lines, preserving line endings
+            lines = content.splitlines(keepends=True)
+
+            # Delete lines (convert to zero-based index)
+            del lines[start_line - 1 : end_line]
+
+            # Write the updated content back to file
+            final_content = "".join(lines)
+            with open(file_path, "w", encoding=encoding) as f:
+                f.write(final_content)
+
+            # Calculate new hash
+            new_hash = self.calculate_hash(final_content)
+
+            return {
+                "result": "ok",
+                "file_hash": new_hash,
+                "reason": None,
+            }
+
+        except FileNotFoundError:
+            return {
+                "result": "error",
+                "reason": f"File not found: {file_path}",
+                "file_hash": None,
+            }
+        except Exception as e:
+            return {
+                "result": "error",
+                "reason": str(e),
+                "file_hash": None,
+            }
