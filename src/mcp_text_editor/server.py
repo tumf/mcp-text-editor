@@ -214,25 +214,32 @@ class EditTextFileContentsHandler:
                         continue
 
                     encoding = arguments.get("encoding", "utf-8")
-                    result = await self.editor.edit_file_contents(
-                        file_path, file_hash, patches, encoding=encoding
-                    )
-                    results[file_path] = result
+                    # Validate patch fields first
+                    for patch in patches:
+                        if "contents" not in patch:
+                            results[file_path] = {
+                                "result": "error",
+                                "reason": "Missing required field 'contents' in patch",
+                                "file_hash": file_hash,
+                                "content": None,
+                            }
+                            break
+                    else:  # No break occurred
+                        result = await self.editor.edit_file_contents(
+                            file_path, file_hash, patches, encoding=encoding
+                        )
+                        results[file_path] = result
                 except Exception as e:
-                    current_hash = None
-                    if "path" in file_operation:
-                        file_path = file_operation["path"]
-                        try:
-                            _, _, _, current_hash, _, _ = (
-                                await self.editor.read_file_contents(file_path)
-                            )
-                        except Exception:
-                            current_hash = None
-
-                    results[file_path if "path" in file_operation else "unknown"] = {
+                    error_file_path = (
+                        file_path if "path" in file_operation else "unknown"
+                    )
+                    results[error_file_path] = {
                         "result": "error",
                         "reason": str(e),
-                        "file_hash": current_hash,
+                        "file_hash": file_operation.get(
+                            "file_hash"
+                        ),  # Use original hash
+                        "content": None,
                     }
 
             return [TextContent(type="text", text=json.dumps(results, indent=2))]
