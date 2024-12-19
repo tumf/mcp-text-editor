@@ -416,11 +416,117 @@ class AppendTextFileContentsHandler:
             raise RuntimeError(f"Error processing request: {str(e)}") from e
 
 
+class DeleteTextFileContentsHandler:
+    """Handler for deleting content from a text file."""
+
+    name = "delete_text_file_contents"
+    description = "Delete specified content ranges from a text file. The file must exist. File paths must be absolute."
+
+    def __init__(self):
+        self.editor = TextEditor()
+
+    def get_tool_description(self) -> Tool:
+        """Get the tool description."""
+        return Tool(
+            name=self.name,
+            description=self.description,
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Path to the text file. File path must be absolute.",
+                    },
+                    "file_hash": {
+                        "type": "string",
+                        "description": "Hash of the file contents for concurrency control",
+                    },
+                    "ranges": {
+                        "type": "array",
+                        "description": "List of line ranges to delete",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "start": {
+                                    "type": "integer",
+                                    "description": "Starting line number (1-based)",
+                                },
+                                "end": {
+                                    "type": ["integer", "null"],
+                                    "description": "Ending line number (null for end of file)",
+                                },
+                                "range_hash": {
+                                    "type": "string",
+                                    "description": "Hash of the content being deleted",
+                                },
+                            },
+                            "required": ["start", "range_hash"],
+                        },
+                    },
+                    "encoding": {
+                        "type": "string",
+                        "description": "Text encoding (default: 'utf-8')",
+                        "default": "utf-8",
+                    },
+                },
+                "required": ["file_path", "file_hash", "ranges"],
+            },
+        )
+
+    async def run_tool(self, arguments: Dict[str, Any]) -> Sequence[TextContent]:
+        """Execute the tool with given arguments."""
+        try:
+            # Input validation
+            if "file_path" not in arguments:
+                raise RuntimeError("Missing required argument: file_path")
+            if "file_hash" not in arguments:
+                raise RuntimeError("Missing required argument: file_hash")
+            if "ranges" not in arguments:
+                raise RuntimeError("Missing required argument: ranges")
+
+            file_path = arguments["file_path"]
+            if not os.path.isabs(file_path):
+                raise RuntimeError(f"File path must be absolute: {file_path}")
+
+            # Check if file exists
+            if not os.path.exists(file_path):
+                raise RuntimeError(f"File does not exist: {file_path}")
+
+            encoding = arguments.get("encoding", "utf-8")
+
+            # Create patches for deletion (replacing content with empty string)
+            patches = [
+                {
+                    "start": r["start"],
+                    "end": r["end"],
+                    "contents": "",
+                    "range_hash": r["range_hash"],
+                }
+                for r in arguments["ranges"]
+            ]
+
+            # Use the existing edit_file_contents method
+            result = await self.editor.edit_file_contents(
+                file_path,
+                expected_hash=arguments["file_hash"],
+                patches=patches,
+                encoding=encoding,
+            )
+
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        except Exception as e:
+            logger.error(f"Error processing request: {str(e)}")
+            logger.error(traceback.format_exc())
+            raise RuntimeError(f"Error processing request: {str(e)}") from e
+
+
 # Initialize tool handlers
 get_contents_handler = GetTextFileContentsHandler()
 edit_contents_handler = EditTextFileContentsHandler()
 create_file_handler = CreateTextFileHandler()
 append_file_handler = AppendTextFileContentsHandler()
+delete_contents_handler = DeleteTextFileContentsHandler()
 
 
 @app.list_tools()
@@ -431,6 +537,7 @@ async def list_tools() -> List[Tool]:
         edit_contents_handler.get_tool_description(),
         create_file_handler.get_tool_description(),
         append_file_handler.get_tool_description(),
+        delete_contents_handler.get_tool_description(),
     ]
 
 
@@ -447,6 +554,8 @@ async def call_tool(name: str, arguments: Any) -> Sequence[TextContent]:
             return await create_file_handler.run_tool(arguments)
         elif name == append_file_handler.name:
             return await append_file_handler.run_tool(arguments)
+        elif name == delete_contents_handler.name:
+            return await delete_contents_handler.run_tool(arguments)
         else:
             raise ValueError(f"Unknown tool: {name}")
     except ValueError:
