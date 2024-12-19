@@ -431,3 +431,108 @@ class TextEditor:
                 "reason": "Unexpected error occurred",
                 "content": None,
             }
+
+    async def insert_text_file_contents(
+        self,
+        file_path: str,
+        file_hash: str,
+        contents: str,
+        after: Optional[int] = None,
+        before: Optional[int] = None,
+        encoding: str = "utf-8",
+    ) -> Dict[str, Any]:
+        """Insert text content before or after a specific line in a file.
+
+        Args:
+            file_path (str): Path to the file to edit
+            file_hash (str): Expected hash of the file before editing
+            contents (str): Content to insert
+            after (Optional[int]): Line number after which to insert content
+            before (Optional[int]): Line number before which to insert content
+            encoding (str, optional): File encoding. Defaults to "utf-8"
+
+        Returns:
+            Dict[str, Any]: Results containing:
+                - result: "ok" or "error"
+                - hash: New file hash if successful
+                - reason: Error message if result is "error"
+        """
+        if (after is None and before is None) or (
+            after is not None and before is not None
+        ):
+            return {
+                "result": "error",
+                "reason": "Exactly one of 'after' or 'before' must be specified",
+                "hash": None,
+            }
+
+        try:
+            current_content, _, _, current_hash, total_lines, _ = (
+                await self.read_file_contents(
+                    file_path,
+                    encoding=encoding,
+                )
+            )
+
+            if current_hash != file_hash:
+                return {
+                    "result": "error",
+                    "reason": "File hash mismatch - Please use get_text_file_contents tool to get current content and hash",
+                    "hash": None,
+                }
+
+            # Split into lines, preserving line endings
+            lines = current_content.splitlines(keepends=True)
+
+            # Determine insertion point
+            if after is not None:
+                if after > total_lines:
+                    return {
+                        "result": "error",
+                        "reason": f"Line number {after} is beyond end of file (total lines: {total_lines})",
+                        "hash": None,
+                    }
+                insert_pos = after
+            else:  # before must be set due to earlier validation
+                assert before is not None
+                if before > total_lines + 1:
+                    return {
+                        "result": "error",
+                        "reason": f"Line number {before} is beyond end of file (total lines: {total_lines})",
+                        "hash": None,
+                    }
+                insert_pos = before - 1
+
+            # Ensure content ends with newline
+            if not contents.endswith("\n"):
+                contents += "\n"
+
+            # Insert the content
+            lines.insert(insert_pos, contents)
+
+            # Join lines and write back to file
+            final_content = "".join(lines)
+            with open(file_path, "w", encoding=encoding) as f:
+                f.write(final_content)
+
+            # Calculate new hash
+            new_hash = self.calculate_hash(final_content)
+
+            return {
+                "result": "ok",
+                "hash": new_hash,
+                "reason": None,
+            }
+
+        except FileNotFoundError:
+            return {
+                "result": "error",
+                "reason": f"File not found: {file_path}",
+                "hash": None,
+            }
+        except Exception as e:
+            return {
+                "result": "error",
+                "reason": str(e),
+                "hash": None,
+            }

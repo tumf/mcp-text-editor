@@ -2,7 +2,7 @@
 
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class GetTextFileContentsRequest(BaseModel):
@@ -120,3 +120,49 @@ class FileRanges(BaseModel):
     ranges: List[FileRange] = Field(
         ..., description="List of line ranges to read from the file"
     )
+
+
+class InsertTextFileContentsRequest(BaseModel):
+    """Request model for inserting text into a file.
+
+    Example:
+    {
+        "path": "/path/to/file",
+        "file_hash": "abc123...",
+        "after": 5,  # Insert after line 5
+        "contents": "new content"
+    }
+    or
+    {
+        "path": "/path/to/file",
+        "file_hash": "abc123...",
+        "before": 5,  # Insert before line 5
+        "contents": "new content"
+    }
+    """
+
+    path: str = Field(..., description="Path to the text file")
+    file_hash: str = Field(..., description="Hash of original contents")
+    after: Optional[int] = Field(
+        None, description="Line number after which to insert content"
+    )
+    before: Optional[int] = Field(
+        None, description="Line number before which to insert content"
+    )
+    contents: str = Field(..., description="Content to insert")
+
+    @model_validator(mode="after")
+    def validate_position(self) -> "InsertTextFileContentsRequest":
+        """Validate that exactly one of after or before is specified."""
+        if (self.after is None and self.before is None) or (
+            self.after is not None and self.before is not None
+        ):
+            raise ValueError("Exactly one of 'after' or 'before' must be specified")
+        return self
+
+    @field_validator("after", "before")
+    def validate_line_number(cls, v) -> Optional[int]:
+        """Validate that line numbers are positive."""
+        if v is not None and v < 1:
+            raise ValueError("Line numbers must be positive")
+        return v
