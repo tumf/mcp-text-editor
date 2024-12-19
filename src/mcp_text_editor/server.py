@@ -346,7 +346,7 @@ class AppendTextFileContentsHandler:
                     },
                     "file_hash": {
                         "type": "string",
-                        "description": "Hash of the file contents for concurrency control",
+                        "description": "Hash of the file contents for concurrency control. it should be matched with the file_hash when get_text_file_contents is called.",
                     },
                     "encoding": {
                         "type": "string",
@@ -439,7 +439,7 @@ class DeleteTextFileContentsHandler:
                     },
                     "file_hash": {
                         "type": "string",
-                        "description": "Hash of the file contents for concurrency control",
+                        "description": "Hash of the file contents for concurrency control. it should be matched with the file_hash when get_text_file_contents is called.",
                     },
                     "ranges": {
                         "type": "array",
@@ -457,7 +457,7 @@ class DeleteTextFileContentsHandler:
                                 },
                                 "range_hash": {
                                     "type": "string",
-                                    "description": "Hash of the content being deleted",
+                                    "description": "Hash of the content being deleted. it should be matched with the range_hash when get_text_file_contents is called with the same range.",
                                 },
                             },
                             "required": ["start", "range_hash"],
@@ -544,7 +544,7 @@ class InsertTextFileContentsHandler:
                     },
                     "file_hash": {
                         "type": "string",
-                        "description": "Hash of the file contents for concurrency control",
+                        "description": "Hash of the file contents for concurrency control. it should be matched with the file_hash when get_text_file_contents is called.",
                     },
                     "contents": {
                         "type": "string",
