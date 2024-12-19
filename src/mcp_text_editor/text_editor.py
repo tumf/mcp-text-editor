@@ -562,6 +562,20 @@ class TextEditor:
                 - hash: New file hash if successful
                 - reason: Error message if result is "error"
         """
+        # Check required parameters
+        if not file_path:
+            raise RuntimeError("Missing required argument: file_path")
+        if not file_hash:
+            raise RuntimeError("Missing required argument: file_hash")
+        if not range_hash:
+            raise RuntimeError("Missing required argument: range_hash")
+
+        # Validate file path
+        if not os.path.isabs(file_path):
+            raise RuntimeError("File path must be absolute")
+        if not os.path.exists(file_path):
+            raise RuntimeError("File does not exist")
+
         try:
             # Read current content and verify hash
             content, _, _, current_hash, total_lines, _ = await self.read_file_contents(

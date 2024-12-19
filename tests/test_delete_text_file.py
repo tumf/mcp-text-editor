@@ -155,3 +155,72 @@ async def test_delete_with_out_of_range(editor, test_file):
     assert result["result"] == "error"
     assert "line number out of range" in result["reason"].lower()
     assert test_file.read_text() == "Line 1\nLine 2\nLine 3\nLine 4\nLine 5\n"
+
+
+@pytest.mark.asyncio
+async def test_delete_without_file_path(editor):
+    """Test deleting without specifying file_path"""
+    with pytest.raises(
+        TypeError, match="missing 1 required positional argument: 'file_path'"
+    ):
+        await editor.delete_text_file_contents(
+            file_hash="any_hash",
+            range_hash="any_hash",
+            start_line=1,
+            end_line=1,
+        )
+
+
+@pytest.mark.asyncio
+async def test_delete_without_file_hash(editor, test_file):
+    """Test deleting without specifying file_hash"""
+    with pytest.raises(
+        TypeError, match="missing 1 required positional argument: 'file_hash'"
+    ):
+        await editor.delete_text_file_contents(
+            file_path=str(test_file),
+            range_hash="any_hash",
+            start_line=1,
+            end_line=1,
+        )
+
+
+@pytest.mark.asyncio
+async def test_delete_without_range_hash(editor, test_file):
+    """Test deleting without specifying range_hash"""
+    with pytest.raises(
+        TypeError, match="missing 1 required positional argument: 'range_hash'"
+    ):
+        await editor.delete_text_file_contents(
+            file_path=str(test_file),
+            file_hash="any_hash",
+            start_line=1,
+            end_line=1,
+        )
+
+
+@pytest.mark.asyncio
+async def test_delete_relative_path(editor):
+    """Test deleting with relative path"""
+    with pytest.raises(RuntimeError, match="File path must be absolute"):
+        await editor.delete_text_file_contents(
+            file_path="relative/path/file.txt",
+            file_hash="any_hash",
+            range_hash="any_hash",
+            start_line=1,
+            end_line=1,
+        )
+
+
+@pytest.mark.asyncio
+async def test_delete_nonexistent_file(editor, tmp_path):
+    """Test deleting a file that doesn't exist"""
+    nonexistent_file = tmp_path / "nonexistent.txt"
+    with pytest.raises(RuntimeError, match="File does not exist"):
+        await editor.delete_text_file_contents(
+            file_path=str(nonexistent_file),
+            file_hash="any_hash",
+            range_hash="any_hash",
+            start_line=1,
+            end_line=1,
+        )
