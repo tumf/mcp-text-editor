@@ -1,12 +1,11 @@
 """Test cases for create_text_file handler."""
 
 import os
-from typing import Any, Dict
+from typing import Any, Dict, Generator
 
 import pytest
 
 from mcp_text_editor.server import CreateTextFileHandler
-from mcp_text_editor.text_editor import TextEditor
 
 # Initialize handlers for tests
 create_file_handler = CreateTextFileHandler()
@@ -19,7 +18,7 @@ def test_dir(tmp_path: str) -> str:
 
 
 @pytest.fixture
-def cleanup_files() -> None:
+def cleanup_files() -> Generator[None, None, None]:
     """Clean up any test files after each test."""
     yield
     # Add cleanup code if needed
@@ -46,7 +45,7 @@ async def test_create_text_file_success(test_dir: str, cleanup_files: None) -> N
     # Parse response to check success
     assert len(response) == 1
     result = response[0].text
-    assert "\"result\": \"ok\"" in result
+    assert '"result": "ok"' in result
 
 
 @pytest.mark.asyncio
@@ -70,7 +69,9 @@ async def test_create_text_file_exists(test_dir: str, cleanup_files: None) -> No
 
 
 @pytest.mark.asyncio
-async def test_create_text_file_relative_path(test_dir: str, cleanup_files: None) -> None:
+async def test_create_text_file_relative_path(
+    test_dir: str, cleanup_files: None
+) -> None:
     """Test attempting to create a file with a relative path."""
     # Try to create file using relative path
     arguments: Dict[str, Any] = {
@@ -99,7 +100,9 @@ async def test_create_text_file_missing_args() -> None:
 
 
 @pytest.mark.asyncio
-async def test_create_text_file_custom_encoding(test_dir: str, cleanup_files: None) -> None:
+async def test_create_text_file_custom_encoding(
+    test_dir: str, cleanup_files: None
+) -> None:
     """Test creating a file with custom encoding."""
     test_file = os.path.join(test_dir, "encoded_file.txt")
     content = "こんにちは\n"  # Japanese text
@@ -120,4 +123,4 @@ async def test_create_text_file_custom_encoding(test_dir: str, cleanup_files: No
     # Parse response to check success
     assert len(response) == 1
     result = response[0].text
-    assert "\"result\": \"ok\"" in result
+    assert '"result": "ok"' in result

@@ -1,7 +1,7 @@
 """Test cases for append_text_file_contents handler."""
 
 import os
-from typing import Any, Dict
+from typing import Any, Dict, Generator
 
 import pytest
 
@@ -19,7 +19,7 @@ def test_dir(tmp_path: str) -> str:
 
 
 @pytest.fixture
-def cleanup_files() -> None:
+def cleanup_files() -> Generator[None, None, None]:
     """Clean up any test files after each test."""
     yield
     # Add cleanup code if needed
@@ -56,7 +56,7 @@ async def test_append_text_file_success(test_dir: str, cleanup_files: None) -> N
     # Parse response to check success
     assert len(response) == 1
     result = response[0].text
-    assert "\"result\": \"ok\"" in result
+    assert '"result": "ok"' in result
 
 
 @pytest.mark.asyncio
@@ -78,7 +78,9 @@ async def test_append_text_file_not_exists(test_dir: str, cleanup_files: None) -
 
 
 @pytest.mark.asyncio
-async def test_append_text_file_hash_mismatch(test_dir: str, cleanup_files: None) -> None:
+async def test_append_text_file_hash_mismatch(
+    test_dir: str, cleanup_files: None
+) -> None:
     """Test appending with incorrect file hash."""
     test_file = os.path.join(test_dir, "hash_test.txt")
     initial_content = "Initial content\n"
@@ -101,7 +103,9 @@ async def test_append_text_file_hash_mismatch(test_dir: str, cleanup_files: None
 
 
 @pytest.mark.asyncio
-async def test_append_text_file_relative_path(test_dir: str, cleanup_files: None) -> None:
+async def test_append_text_file_relative_path(
+    test_dir: str, cleanup_files: None
+) -> None:
     """Test attempting to append using a relative path."""
     arguments: Dict[str, Any] = {
         "path": "relative_path.txt",
@@ -125,17 +129,23 @@ async def test_append_text_file_missing_args() -> None:
 
     # Test missing contents
     with pytest.raises(RuntimeError) as exc_info:
-        await append_handler.run_tool({"path": "/absolute/path.txt", "file_hash": "hash"})
+        await append_handler.run_tool(
+            {"path": "/absolute/path.txt", "file_hash": "hash"}
+        )
     assert "Missing required argument: contents" in str(exc_info.value)
 
     # Test missing file_hash
     with pytest.raises(RuntimeError) as exc_info:
-        await append_handler.run_tool({"path": "/absolute/path.txt", "contents": "content\n"})
+        await append_handler.run_tool(
+            {"path": "/absolute/path.txt", "contents": "content\n"}
+        )
     assert "Missing required argument: file_hash" in str(exc_info.value)
 
 
 @pytest.mark.asyncio
-async def test_append_text_file_custom_encoding(test_dir: str, cleanup_files: None) -> None:
+async def test_append_text_file_custom_encoding(
+    test_dir: str, cleanup_files: None
+) -> None:
     """Test appending with custom encoding."""
     test_file = os.path.join(test_dir, "encode_test.txt")
     initial_content = "こんにちは\n"
@@ -147,7 +157,9 @@ async def test_append_text_file_custom_encoding(test_dir: str, cleanup_files: No
 
     # Get file hash for append operation
     editor = TextEditor()
-    _, _, _, file_hash, _, _ = await editor.read_file_contents(test_file, encoding="utf-8")
+    _, _, _, file_hash, _, _ = await editor.read_file_contents(
+        test_file, encoding="utf-8"
+    )
 
     # Append content using handler with specified encoding
     arguments: Dict[str, Any] = {
@@ -166,4 +178,4 @@ async def test_append_text_file_custom_encoding(test_dir: str, cleanup_files: No
     # Parse response to check success
     assert len(response) == 1
     result = response[0].text
-    assert "\"result\": \"ok\"" in result
+    assert '"result": "ok"' in result

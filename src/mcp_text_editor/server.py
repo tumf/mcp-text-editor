@@ -241,11 +241,14 @@ class EditTextFileContentsHandler:
             logger.error(traceback.format_exc())
             raise RuntimeError(f"Error processing request: {str(e)}") from e
 
+
 class CreateTextFileHandler:
     """Handler for creating a new text file."""
 
     name = "create_text_file"
-    description = "Create a new text file with given content. The file must not exist already."
+    description = (
+        "Create a new text file with given content. The file must not exist already."
+    )
 
     def __init__(self):
         self.editor = TextEditor()
@@ -293,7 +296,7 @@ class CreateTextFileHandler:
                 raise RuntimeError(f"File already exists: {file_path}")
 
             encoding = arguments.get("encoding", "utf-8")
-            
+
             # Create new file using edit_file_contents with empty expected_hash
             result = await self.editor.edit_file_contents(
                 file_path,
@@ -374,12 +377,11 @@ class AppendTextFileContentsHandler:
                 raise RuntimeError(f"File does not exist: {file_path}")
 
             encoding = arguments.get("encoding", "utf-8")
-            
+
             # Check file contents and hash before modification
             # Get file information and verify hash
-            content, _, _, current_hash, total_lines, _ = await self.editor.read_file_contents(
-                file_path,
-                encoding=encoding
+            content, _, _, current_hash, total_lines, _ = (
+                await self.editor.read_file_contents(file_path, encoding=encoding)
             )
 
             # Verify file hash
@@ -414,12 +416,12 @@ class AppendTextFileContentsHandler:
             raise RuntimeError(f"Error processing request: {str(e)}") from e
 
 
-
 # Initialize tool handlers
 get_contents_handler = GetTextFileContentsHandler()
 edit_contents_handler = EditTextFileContentsHandler()
 create_file_handler = CreateTextFileHandler()
 append_file_handler = AppendTextFileContentsHandler()
+
 
 @app.list_tools()
 async def list_tools() -> List[Tool]:
