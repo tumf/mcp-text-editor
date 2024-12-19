@@ -63,13 +63,21 @@ class EditResult(BaseModel):
         None, description="Current content hash (None for missing files)"
     )
 
+    @model_validator(mode="after")
+    def validate_error_result(self) -> "EditResult":
+        """Remove hash when result is error."""
+        if self.result == "error":
+            object.__setattr__(self, "hash", None)
+        return self
+
     def to_dict(self) -> Dict:
         """Convert EditResult to a dictionary."""
-        return {
-            "result": self.result,
-            "reason": self.reason,
-            "hash": self.hash,
-        }
+        result = {"result": self.result}
+        if self.reason is not None:
+            result["reason"] = self.reason
+        if self.hash is not None:
+            result["hash"] = self.hash
+        return result
 
 
 class EditTextFileContentsRequest(BaseModel):

@@ -114,6 +114,10 @@ def test_edit_result():
     assert result.result == "ok"
     assert result.hash == "newhash123"
     assert result.reason is None
+    result_dict = result.to_dict()
+    assert result_dict["result"] == "ok"
+    assert result_dict["hash"] == "newhash123"
+    assert "reason" not in result_dict
 
     # Test error result with reason
     result = EditResult(
@@ -123,7 +127,11 @@ def test_edit_result():
     )
     assert result.result == "error"
     assert result.reason == "hash mismatch"
-    assert result.hash == "currenthash123"
+    assert result.hash is None
+    result_dict = result.to_dict()
+    assert result_dict["result"] == "error"
+    assert result_dict["reason"] == "hash mismatch"
+    assert "hash" not in result_dict
 
     # Test validation error - missing required fields
     with pytest.raises(ValidationError):
@@ -177,11 +185,7 @@ def test_edit_result_to_dict():
     # Test successful result
     result = EditResult(result="ok", hash="newhash123")
     result_dict = result.to_dict()
-    assert result_dict == {
-        "result": "ok",
-        "hash": "newhash123",
-        "reason": None,
-    }
+    assert result_dict == {"result": "ok", "hash": "newhash123"}
 
     # Test error result
     result = EditResult(
@@ -190,11 +194,7 @@ def test_edit_result_to_dict():
         hash="currenthash123",
     )
     result_dict = result.to_dict()
-    assert result_dict == {
-        "result": "error",
-        "reason": "hash mismatch",
-        "hash": "currenthash123",
-    }
+    assert result_dict == {"result": "error", "reason": "hash mismatch"}
 
 
 def test_file_range():
