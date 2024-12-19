@@ -472,6 +472,43 @@ class DeleteTextFileContentsHandler:
                 "required": ["file_path", "file_hash", "ranges"],
             },
         )
+    async def run_tool(self, arguments: Dict[str, Any]) -> Sequence[TextContent]:
+        """Execute the tool with given arguments."""
+        try:
+            if "path" not in arguments:
+                raise RuntimeError("Missing required argument: path")
+            if "file_hash" not in arguments:
+                raise RuntimeError("Missing required argument: file_hash")
+            if "contents" not in arguments:
+                raise RuntimeError("Missing required argument: contents")
+
+            file_path = arguments["path"]
+            if not os.path.isabs(file_path):
+                raise RuntimeError(f"File path must be absolute: {file_path}")
+
+            # Check if exactly one of before/after is specified
+            if ("before" in arguments) == ("after" in arguments):
+                raise RuntimeError("Exactly one of 'before' or 'after' must be specified")
+
+            encoding = arguments.get("encoding", "utf-8")
+            line_number = arguments.get("before") if "before" in arguments else arguments.get("after")
+            is_before = "before" in arguments
+
+            result = await self.editor.insert_text_file_contents(
+                file_path=file_path,
+                file_hash=arguments["file_hash"],
+                contents=arguments["contents"],
+                before=is_before,
+                line_number=line_number,
+                encoding=encoding,
+            )
+
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        except Exception as e:
+            logger.error(f"Error processing request: {str(e)}")
+            logger.error(traceback.format_exc())
+            raise RuntimeError(f"Error processing request: {str(e)}") from e
 
     async def run_tool(self, arguments: Dict[str, Any]) -> Sequence[TextContent]:
         """Execute the tool with given arguments."""
@@ -491,34 +528,6 @@ class DeleteTextFileContentsHandler:
             # Check if file exists
             if not os.path.exists(file_path):
                 raise RuntimeError(f"File does not exist: {file_path}")
-
-            encoding = arguments.get("encoding", "utf-8")
-
-            # Create patches for deletion (replacing content with empty string)
-            patches = [
-                {
-                    "start": r["start"],
-                    "end": r["end"],
-                    "contents": "",
-                    "range_hash": r["range_hash"],
-                }
-                for r in arguments["ranges"]
-            ]
-
-            # Use the existing edit_file_contents method
-            result = await self.editor.edit_file_contents(
-                file_path,
-                expected_hash=arguments["file_hash"],
-                patches=patches,
-                encoding=encoding,
-            )
-
-            return [TextContent(type="text", text=json.dumps(result, indent=2))]
-
-        except Exception as e:
-            logger.error(f"Error processing request: {str(e)}")
-            logger.error(traceback.format_exc())
-            raise RuntimeError(f"Error processing request: {str(e)}") from e
 
 
 class InsertTextFileContentsHandler:
@@ -584,15 +593,9 @@ class InsertTextFileContentsHandler:
 
             # Check if exactly one of before/after is specified
             if ("before" in arguments) == ("after" in arguments):
-                raise RuntimeError(
-                    "Exactly one of 'before' or 'after' must be specified"
-                )
+                raise RuntimeError("Exactly one of 'before' or 'after' must be specified")
 
-            line_number = (
-                arguments.get("before")
-                if "before" in arguments
-                else arguments.get("after")
-            )
+            line_number = arguments.get("before") if "before" in arguments else arguments.get("after")
             is_before = "before" in arguments
             encoding = arguments.get("encoding", "utf-8")
 
@@ -620,6 +623,40 @@ create_file_handler = CreateTextFileHandler()
 append_file_handler = AppendTextFileContentsHandler()
 delete_contents_handler = DeleteTextFileContentsHandler()
 insert_file_handler = InsertTextFileContentsHandler()
+
+            # Create patches for deletion (replacing content with empty string)
+            patches = [
+                {
+                    "start": r["start"],
+                    "end": r["end"],
+                    "contents": "",
+                    "range_hash": r["range_hash"],
+                }
+                for r in arguments["ranges"]
+            ]
+
+            # Use the existing edit_file_contents method
+            result = await self.editor.edit_file_contents(
+                file_path,
+                expected_hash=arguments["file_hash"],
+                patches=patches,
+                encoding=encoding,
+            )
+
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        except Exception as e:
+            logger.error(f"Error processing request: {str(e)}")
+            logger.error(traceback.format_exc())
+            raise RuntimeError(f"Error processing request: {str(e)}") from e
+
+
+# Initialize tool handlers
+get_contents_handler = GetTextFileContentsHandler()
+edit_contents_handler = EditTextFileContentsHandler()
+create_file_handler = CreateTextFileHandler()
+append_file_handler = AppendTextFileContentsHandler()
+delete_contents_handler = DeleteTextFileContentsHandler()
 
 
 @app.list_tools()

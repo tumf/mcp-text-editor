@@ -25,7 +25,7 @@ from mcp_text_editor.server import (
 async def test_list_tools():
     """Test tool listing."""
     tools: List[Tool] = await list_tools()
-    assert len(tools) == 5
+    assert len(tools) == 6
 
     # Verify GetTextFileContents tool
     get_contents_tool = next(
