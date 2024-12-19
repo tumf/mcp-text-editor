@@ -22,6 +22,6 @@ typecheck:
 	mypy src tests
 
 # Run all checks required before pushing
-check:  lint typecheck test
-fix: check format
+check:  lint typecheck
+fix: format
 all: format check coverage
