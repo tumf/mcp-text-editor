@@ -111,6 +111,9 @@ class FileRange(BaseModel):
     end: Optional[int] = Field(
         None, description="Ending line number (null for end of file)"
     )
+    range_hash: Optional[str] = Field(
+        None, description="Hash of the content to be deleted"
+    )
 
 
 class FileRanges(BaseModel):
@@ -149,6 +152,9 @@ class InsertTextFileContentsRequest(BaseModel):
     before: Optional[int] = Field(
         None, description="Line number before which to insert content"
     )
+    encoding: Optional[str] = Field(
+        "utf-8", description="Text encoding (default: 'utf-8')"
+    )
     contents: str = Field(..., description="Content to insert")
 
     @model_validator(mode="after")
@@ -170,10 +176,9 @@ class InsertTextFileContentsRequest(BaseModel):
 
 class DeleteTextFileContentsRequest(BaseModel):
     """Request model for deleting text from a file.
-
     Example:
     {
-        "path": "/path/to/file",
+        "file_path": "/path/to/file",
         "file_hash": "abc123...",
         "ranges": [
             {
@@ -185,15 +190,34 @@ class DeleteTextFileContentsRequest(BaseModel):
     }
     """
 
-    path: str = Field(..., description="Path to the text file")
+    file_path: str = Field(..., description="Path to the text file")
     file_hash: str = Field(..., description="Hash of original contents")
     ranges: List[FileRange] = Field(..., description="List of ranges to delete")
+    encoding: Optional[str] = Field(
+        "utf-8", description="Text encoding (default: 'utf-8')"
+    )
 
-    @field_validator("range_hash")
-    def validate_range_hash(cls, v: str) -> str:
-        """Validate that range_hash is not empty."""
-        if not v:
-            raise ValueError("range_hash cannot be empty")
-        return v
 
-    range_hash: str = Field(..., description="Hash of the content to be deleted")
+class PatchTextFileContentsRequest(BaseModel):
+    """Request model for patching text in a file.
+    Example:
+    {
+        "file_path": "/path/to/file",
+        "file_hash": "abc123...",
+        "patches": [
+            {
+                "start": 5,
+                "end": 10,
+                "contents": "new content",
+                "range_hash": "def456..."
+            }
+        ]
+    }
+    """
+
+    file_path: str = Field(..., description="Path to the text file")
+    file_hash: str = Field(..., description="Hash of original contents")
+    patches: List[EditPatch] = Field(..., description="List of patches to apply")
+    encoding: Optional[str] = Field(
+        "utf-8", description="Text encoding (default: 'utf-8')"
+    )

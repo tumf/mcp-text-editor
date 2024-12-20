@@ -5,9 +5,35 @@ import logging
 import os
 from typing import Any, Dict, List, Optional, Tuple
 
-from mcp_text_editor.models import EditPatch, FileRanges
+from mcp_text_editor.models import DeleteTextFileContentsRequest, EditPatch, FileRanges
 
 logger = logging.getLogger(__name__)
+
+
+def _create_error_response(
+    error_message: str,
+    content_hash: Optional[str] = None,
+    file_path: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Create a standardized error response.
+
+    Args:
+        error_message (str): The error message to include
+        content_hash (Optional[str], optional): Hash of the current content if available
+        file_path (Optional[str], optional): File path to use as dictionary key
+
+    Returns:
+        Dict[str, Any]: Standardized error response structure
+    """
+    error_response = {
+        "result": "error",
+        "reason": error_message,
+        "hash": content_hash,
+    }
+
+    if file_path:
+        return {file_path: error_response}
+    return error_response
 
 
 class TextEditor:
@@ -539,22 +565,16 @@ class TextEditor:
 
     async def delete_text_file_contents(
         self,
-        file_path: str,
-        file_hash: str,
-        range_hash: str,
-        start_line: int,
-        end_line: int,
-        encoding: str = "utf-8",
+        request: DeleteTextFileContentsRequest,
     ) -> Dict[str, Any]:
-        """Delete lines from a text file.
+        """Delete specified ranges from a text file with conflict detection.
 
         Args:
-            file_path (str): Path to the text file
-            file_hash (str): Expected hash of the file before editing
-            range_hash (str): Expected hash of the range to be deleted
-            start_line (int): Starting line number (1-based)
-            end_line (int): Ending line number (inclusive)
-            encoding (str, optional): File encoding. Defaults to "utf-8".
+            request (DeleteTextFileContentsRequest): The request containing:
+                - file_path: Path to the text file
+                - file_hash: Expected hash of the file before editing
+                - ranges: List of ranges to delete
+                - encoding: Optional text encoding (default: utf-8)
 
         Returns:
             Dict[str, Any]: Results containing:
@@ -562,92 +582,135 @@ class TextEditor:
                 - hash: New file hash if successful
                 - reason: Error message if result is "error"
         """
-        # Check required parameters
-        if not file_path:
-            raise RuntimeError("Missing required argument: file_path")
-        if not file_hash:
-            raise RuntimeError("Missing required argument: file_hash")
-        if not range_hash:
-            raise RuntimeError("Missing required argument: range_hash")
-
-        # Validate file path
-        if not os.path.isabs(file_path):
-            raise RuntimeError("File path must be absolute")
-        if not os.path.exists(file_path):
-            raise RuntimeError("File does not exist")
+        self._validate_file_path(request.file_path)
 
         try:
-            # Read current content and verify hash
-            content, _, _, current_hash, total_lines, _ = await self.read_file_contents(
-                file_path=file_path,
-                encoding=encoding,
+            current_content, _, _, current_hash, total_lines, _ = (
+                await self.read_file_contents(
+                    request.file_path,
+                    encoding=request.encoding or "utf-8",
+                )
             )
 
-            if current_hash != file_hash:
+            # Check for conflicts
+            if current_hash != request.file_hash:
                 return {
-                    "result": "error",
-                    "reason": "File hash mismatch - Please use get_text_file_contents tool to get current content and hash",
-                    "file_hash": None,
+                    request.file_path: {
+                        "result": "error",
+                        "reason": "File hash mismatch - Please use get_text_file_contents tool to get current content and hash",
+                        "hash": current_hash,
+                    }
                 }
 
-            # Validate line range
-            if end_line < start_line:
-                return {
-                    "result": "error",
-                    "reason": "End line must be greater than or equal to start line",
-                    "file_hash": None,
-                }
+            # Split content into lines
+            lines = current_content.splitlines(keepends=True)
 
-            if start_line > total_lines or end_line > total_lines:
-                return {
-                    "result": "error",
-                    "reason": "Line number out of range",
-                    "file_hash": None,
-                }
-
-            # Verify range hash
-            range_content = await self.read_file_contents(
-                file_path=file_path,
-                start=start_line,
-                end=end_line,
-                encoding=encoding,
+            # Sort ranges in reverse order to handle line number shifts
+            sorted_ranges = sorted(
+                request.ranges,
+                key=lambda x: (x.start, x.end or float("inf")),
+                reverse=True,
             )
-            if self.calculate_hash(range_content[0]) != range_hash:
-                return {
-                    "result": "error",
-                    "reason": "Range hash mismatch - Please use get_text_file_contents tool to get current content and hashes",
-                    "file_hash": None,
-                }
 
-            # Split into lines, preserving line endings
-            lines = content.splitlines(keepends=True)
+            # Validate ranges
+            for i, range_ in enumerate(sorted_ranges):
+                if range_.start < 1:
+                    return {
+                        request.file_path: {
+                            "result": "error",
+                            "reason": f"Invalid start line {range_.start}",
+                            "hash": current_hash,
+                        }
+                    }
 
-            # Delete lines (convert to zero-based index)
-            del lines[start_line - 1 : end_line]
+                if range_.end and range_.end < range_.start:
+                    return {
+                        request.file_path: {
+                            "result": "error",
+                            "reason": f"End line {range_.end} is less than start line {range_.start}",
+                            "hash": current_hash,
+                        }
+                    }
 
-            # Write the updated content back to file
+                if range_.start > total_lines:
+                    return {
+                        request.file_path: {
+                            "result": "error",
+                            "reason": f"Start line {range_.start} exceeds file length {total_lines}",
+                            "hash": current_hash,
+                        }
+                    }
+
+                end = range_.end or total_lines
+                if end > total_lines:
+                    return {
+                        request.file_path: {
+                            "result": "error",
+                            "reason": f"End line {end} exceeds file length {total_lines}",
+                            "hash": current_hash,
+                        }
+                    }
+
+                # Check for overlaps with next range
+                if i + 1 < len(sorted_ranges):
+                    next_range = sorted_ranges[i + 1]
+                    next_end = next_range.end or total_lines
+                    if next_end >= range_.start:
+                        return {
+                            request.file_path: {
+                                "result": "error",
+                                "reason": "Overlapping ranges detected",
+                                "hash": current_hash,
+                            }
+                        }
+
+            # Apply deletions
+            for range_ in sorted_ranges:
+                start_idx = range_.start - 1
+                end_idx = range_.end if range_.end else len(lines)
+
+                # Verify range content hash
+                range_content = "".join(lines[start_idx:end_idx])
+                if self.calculate_hash(range_content) != range_.range_hash:
+                    return {
+                        request.file_path: {
+                            "result": "error",
+                            "reason": f"Content hash mismatch for range {range_.start}-{range_.end}",
+                            "hash": current_hash,
+                        }
+                    }
+
+                del lines[start_idx:end_idx]
+
+            # Write the final content back to file
             final_content = "".join(lines)
-            with open(file_path, "w", encoding=encoding) as f:
+            with open(request.file_path, "w", encoding=request.encoding) as f:
                 f.write(final_content)
 
             # Calculate new hash
             new_hash = self.calculate_hash(final_content)
 
             return {
-                "result": "ok",
-                "file_hash": new_hash,
-                "reason": None,
+                request.file_path: {
+                    "result": "ok",
+                    "hash": new_hash,
+                    "reason": None,
+                }
             }
 
         except FileNotFoundError:
             return {
-                "result": "error",
-                "reason": f"File not found: {file_path}",
-                "file_hash": None,
+                request.file_path: {
+                    "result": "error",
+                    "reason": f"File not found: {request.file_path}",
+                    "hash": None,
+                }
             }
         except Exception as e:
             return {
-                "result": "error",
-                "reason": str(e),
-                "file_hash": None,
+                request.file_path: {
+                    "result": "error",
+                    "reason": str(e),
+                    "hash": None,
+                }
             }
