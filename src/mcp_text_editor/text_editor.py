@@ -219,19 +219,10 @@ class TextEditor:
         Args:
             file_path (str): Path to the file to edit
             expected_hash (str): Expected hash of the file before editing
-            patches (List[EditPatch]): List of patches to apply
-                - start (int): Starting line number (1-based, optional, default: 1)
-                - end (Optional[int]): Ending line number (inclusive)
-                - contents (str): New content to insert
-        Edit file contents with hash-based conflict detection and multiple patches (supporting new file creation).
-
-        Args:
-            file_path (str): Path to the file to edit (parent directories are created automatically)
-            expected_hash (str): Expected hash of the file before editing (empty string for new files)
             patches (List[Dict[str, Any]]): List of patches to apply, each containing:
                 - start (int): Starting line number (1-based)
                 - end (Optional[int]): Ending line number (inclusive)
-                - contents (str): New content to insert
+                - contents (str): New content to insert (if empty string, consider using delete_text_file_contents instead)
                 - range_hash (str): Expected hash of the content being replaced
 
         Returns:
@@ -269,9 +260,14 @@ class TextEditor:
                 encoding = "utf-8"
             else:
                 # Read current file content and verify hash
-                current_content, _, _, current_hash, total_lines, _ = (
-                    await self.read_file_contents(file_path, encoding=encoding)
-                )
+                (
+                    current_content,
+                    _,
+                    _,
+                    current_hash,
+                    total_lines,
+                    _,
+                ) = await self.read_file_contents(file_path, encoding=encoding)
 
                 # Treat empty file as new file
                 if not current_content:
@@ -396,6 +392,15 @@ class TextEditor:
                 else:
                     contents = patch["contents"]
 
+                # Check if this is a deletion (empty content)
+                if not contents.strip():
+                    return {
+                        "result": "ok",
+                        "file_hash": current_hash,  # Return current hash since no changes made
+                        "hint": "For content deletion, please consider using delete_text_file_contents instead of patch with empty content",
+                        "suggestion": "delete",
+                    }
+
                 new_content = contents if contents.endswith("\n") else contents + "\n"
                 new_lines = new_content.splitlines(keepends=True)
 
@@ -471,11 +476,16 @@ class TextEditor:
             }
 
         try:
-            current_content, _, _, current_hash, total_lines, _ = (
-                await self.read_file_contents(
-                    file_path,
-                    encoding=encoding,
-                )
+            (
+                current_content,
+                _,
+                _,
+                current_hash,
+                total_lines,
+                _,
+            ) = await self.read_file_contents(
+                file_path,
+                encoding=encoding,
             )
 
             if current_hash != file_hash:
@@ -563,11 +573,16 @@ class TextEditor:
         self._validate_file_path(request.file_path)
 
         try:
-            current_content, _, _, current_hash, total_lines, _ = (
-                await self.read_file_contents(
-                    request.file_path,
-                    encoding=request.encoding or "utf-8",
-                )
+            (
+                current_content,
+                _,
+                _,
+                current_hash,
+                total_lines,
+                _,
+            ) = await self.read_file_contents(
+                request.file_path,
+                encoding=request.encoding or "utf-8",
             )
 
             # Check for conflicts
