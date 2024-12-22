@@ -13,9 +13,9 @@ class BaseHandler:
     name: str = ""
     description: str = ""
 
-    def __init__(self):
+    def __init__(self, editor: TextEditor | None = None):
         """Initialize the handler."""
-        self.editor = TextEditor()
+        self.editor = editor if editor is not None else TextEditor()
 
     def get_tool_description(self) -> Tool:
         """Get the tool description."""
