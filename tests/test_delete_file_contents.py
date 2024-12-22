@@ -183,3 +183,89 @@ def test_delete_text_file_contents_nonexistent_file(service, tmp_path):
     delete_result = result[file_path]
     assert delete_result.result == "error"
     assert "no such file or directory" in delete_result.reason.lower()
+
+
+def test_delete_text_file_contents_multiple_ranges(service, tmp_path):
+    """Test deleting multiple ranges simultaneously."""
+    # Create test file
+    test_file = tmp_path / "multiple_ranges_test.txt"
+    test_content = "line1\nline2\nline3\nline4\nline5\n"
+    test_file.write_text(test_content)
+    file_path = str(test_file)
+
+    # Calculate initial hash
+    initial_hash = service.calculate_hash(test_content)
+
+    # Create delete request with multiple ranges
+    request = DeleteTextFileContentsRequest(
+        file_path=file_path,
+        file_hash=initial_hash,
+        ranges=[
+            FileRange(start=2, end=2, range_hash=service.calculate_hash("line2\n")),
+            FileRange(start=4, end=4, range_hash=service.calculate_hash("line4\n")),
+        ],
+        encoding="utf-8",
+    )
+
+    # Apply delete
+    result = service.delete_text_file_contents(request)
+    assert file_path in result
+    delete_result = result[file_path]
+    assert delete_result.result == "ok"
+
+    # Verify changes
+    new_content = test_file.read_text()
+    assert new_content == "line1\nline3\nline5\n"
+
+
+@pytest.mark.asyncio
+async def test_delete_text_file_contents_handler_validation():
+    """Test validation in DeleteTextFileContentsHandler."""
+    from mcp_text_editor.handlers.delete_text_file_contents import (
+        DeleteTextFileContentsHandler,
+    )
+    from mcp_text_editor.text_editor import TextEditor
+
+    editor = TextEditor()
+    handler = DeleteTextFileContentsHandler(editor)
+
+    # Test missing file_hash
+    with pytest.raises(RuntimeError) as exc_info:
+        arguments = {
+            "file_path": "/absolute/path.txt",
+            "ranges": [{"start": 1, "end": 1, "range_hash": "hash1"}],
+            "encoding": "utf-8",
+        }
+        await handler.run_tool(arguments)
+    assert "Missing required argument: file_hash" in str(exc_info.value)
+
+    # Test missing ranges
+    with pytest.raises(RuntimeError) as exc_info:
+        arguments = {
+            "file_path": "/absolute/path.txt",
+            "file_hash": "some_hash",
+            "encoding": "utf-8",
+        }
+        await handler.run_tool(arguments)
+    assert "Missing required argument: ranges" in str(exc_info.value)
+
+    # Test missing file_path
+    with pytest.raises(RuntimeError) as exc_info:
+        arguments = {
+            "file_hash": "some_hash",
+            "ranges": [{"start": 1, "end": 1, "range_hash": "hash1"}],
+            "encoding": "utf-8",
+        }
+        await handler.run_tool(arguments)
+    assert "Missing required argument: file_path" in str(exc_info.value)
+
+    # Test relative file path
+    with pytest.raises(RuntimeError) as exc_info:
+        arguments = {
+            "file_path": "relative/path.txt",
+            "file_hash": "some_hash",
+            "ranges": [{"start": 1, "end": 1, "range_hash": "hash1"}],
+            "encoding": "utf-8",
+        }
+        await handler.run_tool(arguments)
+    assert "File path must be absolute" in str(exc_info.value)
