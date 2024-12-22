@@ -195,3 +195,22 @@ async def test_get_contents_absolute_path():
         {"files": [{"file_path": abs_path, "ranges": [{"start": 1}]}]}
     )
     assert isinstance(result[0], TextContent)
+
+
+@pytest.mark.asyncio
+async def test_call_tool_general_exception():
+    """Test call_tool with a general exception."""
+    # Patch get_contents_handler.run_tool to raise a general exception
+    original_run_tool = get_contents_handler.run_tool
+
+    async def mock_run_tool(args):
+        raise Exception("Unexpected error")
+
+    try:
+        get_contents_handler.run_tool = mock_run_tool
+        with pytest.raises(RuntimeError) as exc_info:
+            await call_tool("get_text_file_contents", {"files": []})
+        assert "Error executing command: Unexpected error" in str(exc_info.value)
+    finally:
+        # Restore original method
+        get_contents_handler.run_tool = original_run_tool
