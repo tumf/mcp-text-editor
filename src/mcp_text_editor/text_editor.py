@@ -399,7 +399,7 @@ class TextEditor:
                         if actual_range_hash != expected_range_hash:
                             return {
                                 "result": "error",
-                                "reason": "Content range hash mismatch - Please use get_text_file_contents tool to get current content and hashes, then retry with the updated hashes.",
+                                "reason": "Content range hash mismatch - Please use get_text_file_contents tool with the same start and end to get current content and hashes, then retry with the updated hashes.",
                                 "content": current_content,
                             }
 
