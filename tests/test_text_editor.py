@@ -839,3 +839,11 @@ async def test_edit_file_without_end(editor, tmp_path):
 
     assert result["result"] == "ok"
     assert test_file.read_text() == "new line\nline2\nline3\n"
+
+
+def test_validate_environment():
+    """Test environment validation."""
+    editor = TextEditor()
+    # Currently _validate_environment is a placeholder
+    # This test ensures the method exists and can be called without errors
+    editor._validate_environment()
