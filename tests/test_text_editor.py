@@ -894,15 +894,91 @@ async def test_io_error_during_final_write(editor, tmp_path, monkeypatch):
 @pytest.mark.asyncio
 async def test_initialization_with_environment_error(monkeypatch):
     """Test TextEditor initialization when environment validation fails."""
-    
+
     def mock_validate_environment(self):
         raise EnvironmentError("Failed to validate environment")
-    
+
     # Patch the _validate_environment method
     monkeypatch.setattr(TextEditor, "_validate_environment", mock_validate_environment)
-    
+
     # Verify that initialization fails with the expected error
     with pytest.raises(EnvironmentError) as excinfo:
         TextEditor()
-    
+
     assert "Failed to validate environment" in str(excinfo.value)
+
+
+@pytest.mark.asyncio
+async def test_edit_file_using_dict_patch(editor, tmp_path):
+    """Test editing file using dictionary patch without EditPatch model."""
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("line1\nline2\nline3\n")
+
+    # Get first line content and calculate hashes
+    first_line_content, _, _, file_hash, _, _ = await editor.read_file_contents(
+        str(test_file), start=1, end=1
+    )
+
+    # Create a patch using dictionary
+    patch = {
+        "start": 1,
+        "end": 1,
+        "contents": "new line\n",
+        "range_hash": editor.calculate_hash("line1\n"),
+    }
+
+    result = await editor.edit_file_contents(str(test_file), file_hash, [patch])
+    assert result["result"] == "ok"
+    assert test_file.read_text() == "new line\nline2\nline3\n"
+
+
+@pytest.mark.asyncio
+async def test_edit_new_file_with_dict_patch(editor, tmp_path):
+    """Test creating and editing a new file using dictionary patch."""
+    test_file = tmp_path / "new_test.txt"  # File does not exist yet
+
+    # Create a patch dictionary for the new file
+    patch = {
+        "start": 1,
+        "contents": "new file content\n",
+        "range_hash": "",  # Empty range_hash for new files
+    }
+
+    result = await editor.edit_file_contents(str(test_file), "", [patch])
+    assert result["result"] == "ok"
+    assert test_file.read_text() == "new file content\n"
+
+    # Test updating the newly created file
+    content, _, _, file_hash, _, _ = await editor.read_file_contents(str(test_file))
+    new_patch = {
+        "start": 1,
+        "end": 1,
+        "contents": "updated content\n",
+        "range_hash": editor.calculate_hash("new file content\n"),
+    }
+
+    update_result = await editor.edit_file_contents(
+        str(test_file), file_hash, [new_patch]
+    )
+    assert update_result["result"] == "ok"
+    assert test_file.read_text() == "updated content\n"
+
+
+@pytest.mark.asyncio
+async def test_unexpected_file_content_error(editor, tmp_path):
+    """Test handling of unexpected file content error."""
+    # Create a test file that exists but shouldn't
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("existing content")
+
+    # Try to create a new file with empty hash
+    result = await editor.edit_file_contents(
+        str(test_file),
+        "",  # Empty hash indicates new file
+        [{"start": 1, "contents": "new content\n", "range_hash": ""}],
+    )
+
+    assert result["result"] == "error"
+    assert "Unexpected error - Cannot treat existing file as new" in result["reason"]
+    assert result["content"] is None
+    assert result["file_hash"] is None
