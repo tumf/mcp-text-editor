@@ -85,3 +85,32 @@ async def test_patch_text_file_errors(tmp_path):
         await handler.run_tool(
             {"file_path": non_existent_file, "file_hash": "hash", "patches": []}
         )
+
+
+@pytest.mark.asyncio
+async def test_patch_text_file_unexpected_error(tmp_path, mocker):
+    """Test handling of unexpected errors during patching."""
+    editor = TextEditor()
+    handler = PatchTextFileContentsHandler(editor)
+    file_path = os.path.join(tmp_path, "test.txt")
+
+    # Create a test file
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write("test content\n")
+
+    # Mock edit_file_contents to raise an unexpected error
+    async def mock_edit_file_contents(*args, **kwargs):
+        raise Exception("Unexpected test error")
+
+    # Patch the editor's method using mocker
+    mocker.patch.object(editor, 'edit_file_contents', mock_edit_file_contents)
+
+    # Try to patch the file with the mocked error
+    with pytest.raises(RuntimeError, match="Error processing request: Unexpected test error"):
+        await handler.run_tool(
+            {
+                "file_path": file_path,
+                "file_hash": "dummy_hash",
+                "patches": [{"start": 1, "contents": "new content\n", "range_hash": "dummy_hash"}],
+            }
+        )
