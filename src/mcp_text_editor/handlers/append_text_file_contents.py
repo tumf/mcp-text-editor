@@ -27,7 +27,7 @@ class AppendTextFileContentsHandler(BaseHandler):
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "path": {
+                    "file_path": {
                         "type": "string",
                         "description": "Path to the text file. File path must be absolute.",
                     },
@@ -45,7 +45,7 @@ class AppendTextFileContentsHandler(BaseHandler):
                         "default": "utf-8",
                     },
                 },
-                "required": ["path", "contents", "file_hash"],
+                "required": ["file_path", "contents", "file_hash"],
             },
         )
 
