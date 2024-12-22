@@ -375,15 +375,6 @@ class TextEditor:
                     target_content = "".join(target_lines)
                     actual_range_hash = self.calculate_hash(target_content)
 
-                    # Debug output for hash comparison
-                    print(
-                        f"Debug - Range hash comparison:"
-                        f"\nExpected: {expected_range_hash}"
-                        f"\nActual: {actual_range_hash}"
-                        f"\nContent: {target_content!r}"
-                        f"\nRange: {line_start_zero}:{line_end_zero + 1}"
-                    )
-
                     # Compare hashes
                     # Empty range_hash means explicit insertion
                     is_insertion = (
@@ -419,11 +410,6 @@ class TextEditor:
                     # Replace the specified range
                     lines[line_start_zero : line_end_zero + 1] = new_lines
 
-                # Debug output - shows the operation type
-                print(
-                    f"Applied patch: line_start={line_start} line_end={line_end} is_insertion={is_insertion} contents={patch.contents!r}"
-                )
-
             # Write the final content back to file
             final_content = "".join(lines)
             with open(file_path, "w", encoding=encoding) as f:
@@ -453,13 +439,9 @@ class TextEditor:
                 "content": None,
             }
         except Exception as e:
-            import traceback
-
-            print(f"Error: {str(e)}")
-            print(f"Traceback:\n{traceback.format_exc()}")
             return {
                 "result": "error",
-                "reason": "Unexpected error occurred",
+                "reason": f"Unexpected error: {str(e)}",
                 "file_hash": None,
                 "content": None,
             }

@@ -472,14 +472,6 @@ async def test_edit_file_with_none_line_end(editor, tmp_path):
     # Get file hash
     content, _, _, file_hash, _, _ = await editor.read_file_contents(str(test_file))
 
-    # デバッグ用の出力を追加
-    patch = {
-        "line_start": 2,
-        "line_end": None,  # This should replace from line 2 to end
-        "contents": "new2\nnew3\n",
-        "range_hash": editor.calculate_hash("line2\nline3\n"),
-    }
-    print(f"\nDebug - Patch being sent: {patch}")
     # Test replacement with None as line_end
     result = await editor.edit_file_contents(
         str(test_file),
