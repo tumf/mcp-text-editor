@@ -32,7 +32,7 @@ async def test_create_text_file_success(test_dir: str, cleanup_files: None) -> N
 
     # Create file using handler
     arguments: Dict[str, Any] = {
-        "path": test_file,
+        "file_path": test_file,
         "contents": content,
     }
     response = await create_file_handler.run_tool(arguments)
@@ -59,7 +59,7 @@ async def test_create_text_file_exists(test_dir: str, cleanup_files: None) -> No
 
     # Try to create file using handler
     arguments: Dict[str, Any] = {
-        "path": test_file,
+        "file_path": test_file,
         "contents": "New content\n",
     }
 
@@ -75,7 +75,7 @@ async def test_create_text_file_relative_path(
     """Test attempting to create a file with a relative path."""
     # Try to create file using relative path
     arguments: Dict[str, Any] = {
-        "path": "relative_path.txt",
+        "file_path": "relative_path.txt",
         "contents": "Some content\n",
     }
 
@@ -91,11 +91,11 @@ async def test_create_text_file_missing_args() -> None:
     # Test missing path
     with pytest.raises(RuntimeError) as exc_info:
         await create_file_handler.run_tool({"contents": "content\n"})
-    assert "Missing required argument: path" in str(exc_info.value)
+    assert "Missing required argument: file_path" in str(exc_info.value)
 
     # Test missing contents
     with pytest.raises(RuntimeError) as exc_info:
-        await create_file_handler.run_tool({"path": "/absolute/path.txt"})
+        await create_file_handler.run_tool({"file_path": "/absolute/path.txt"})
     assert "Missing required argument: contents" in str(exc_info.value)
 
 
@@ -109,7 +109,7 @@ async def test_create_text_file_custom_encoding(
 
     # Create file using handler with specified encoding
     arguments: Dict[str, Any] = {
-        "path": test_file,
+        "file_path": test_file,
         "contents": content,
         "encoding": "utf-8",
     }

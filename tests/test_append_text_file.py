@@ -42,7 +42,7 @@ async def test_append_text_file_success(test_dir: str, cleanup_files: None) -> N
 
     # Append content using handler
     arguments: Dict[str, Any] = {
-        "path": test_file,
+        "file_path": test_file,
         "contents": append_content,
         "file_hash": file_hash,
     }
@@ -66,7 +66,7 @@ async def test_append_text_file_not_exists(test_dir: str, cleanup_files: None) -
 
     # Try to append to non-existent file
     arguments: Dict[str, Any] = {
-        "path": test_file,
+        "file_path": test_file,
         "contents": "Some content\n",
         "file_hash": "dummy_hash",
     }
@@ -91,7 +91,7 @@ async def test_append_text_file_hash_mismatch(
 
     # Try to append with incorrect hash
     arguments: Dict[str, Any] = {
-        "path": test_file,
+        "file_path": test_file,
         "contents": "New content\n",
         "file_hash": "incorrect_hash",
     }
@@ -108,7 +108,7 @@ async def test_append_text_file_relative_path(
 ) -> None:
     """Test attempting to append using a relative path."""
     arguments: Dict[str, Any] = {
-        "path": "relative_path.txt",
+        "file_path": "relative_path.txt",
         "contents": "Some content\n",
         "file_hash": "dummy_hash",
     }
@@ -125,19 +125,19 @@ async def test_append_text_file_missing_args() -> None:
     # Test missing path
     with pytest.raises(RuntimeError) as exc_info:
         await append_handler.run_tool({"contents": "content\n", "file_hash": "hash"})
-    assert "Missing required argument: path" in str(exc_info.value)
+    assert "Missing required argument: file_path" in str(exc_info.value)
 
     # Test missing contents
     with pytest.raises(RuntimeError) as exc_info:
         await append_handler.run_tool(
-            {"path": "/absolute/path.txt", "file_hash": "hash"}
+            {"file_path": "/absolute/path.txt", "file_hash": "hash"}
         )
     assert "Missing required argument: contents" in str(exc_info.value)
 
     # Test missing file_hash
     with pytest.raises(RuntimeError) as exc_info:
         await append_handler.run_tool(
-            {"path": "/absolute/path.txt", "contents": "content\n"}
+            {"file_path": "/absolute/path.txt", "contents": "content\n"}
         )
     assert "Missing required argument: file_hash" in str(exc_info.value)
 
@@ -163,7 +163,7 @@ async def test_append_text_file_custom_encoding(
 
     # Append content using handler with specified encoding
     arguments: Dict[str, Any] = {
-        "path": test_file,
+        "file_path": test_file,
         "contents": append_content,
         "file_hash": file_hash,
         "encoding": "utf-8",

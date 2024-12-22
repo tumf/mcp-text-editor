@@ -52,14 +52,14 @@ class AppendTextFileContentsHandler(BaseHandler):
     async def run_tool(self, arguments: Dict[str, Any]) -> Sequence[TextContent]:
         """Execute the tool with given arguments."""
         try:
-            if "path" not in arguments:
-                raise RuntimeError("Missing required argument: path")
+            if "file_path" not in arguments:
+                raise RuntimeError("Missing required argument: file_path")
             if "contents" not in arguments:
                 raise RuntimeError("Missing required argument: contents")
             if "file_hash" not in arguments:
                 raise RuntimeError("Missing required argument: file_hash")
 
-            file_path = arguments["path"]
+            file_path = arguments["file_path"]
             if not os.path.isabs(file_path):
                 raise RuntimeError(f"File path must be absolute: {file_path}")
 

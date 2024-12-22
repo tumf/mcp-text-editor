@@ -29,7 +29,7 @@ async def get_text_file_contents(
 async def insert_text_file_contents(request: Dict[str, Any]) -> Dict[str, Any]:
     """Insert text content before or after a specific line in a file."""
     return await _text_editor.insert_text_file_contents(
-        file_path=request["path"],
+        file_path=request["file_path"],
         file_hash=request["file_hash"],
         after=request.get("after"),
         before=request.get("before"),
