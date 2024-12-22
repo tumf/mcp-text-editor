@@ -17,7 +17,7 @@ class InsertTextFileContentsHandler(BaseHandler):
     """Handler for inserting content before or after a specific line in a text file."""
 
     name = "insert_text_file_contents"
-    description = "Insert content before or after a specific line in a text file. Uses hash-based validation for concurrency control."
+    description = "Insert content before or after a specific line in a text file. Uses hash-based validation for concurrency control. You need to provide the file_hash comes from get_text_file_contents."
 
     def get_tool_description(self) -> Tool:
         """Get the tool description."""

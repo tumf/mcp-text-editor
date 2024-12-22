@@ -17,7 +17,7 @@ class DeleteTextFileContentsHandler(BaseHandler):
     """Handler for deleting content from a text file."""
 
     name = "delete_text_file_contents"
-    description = "Delete specified content ranges from a text file. The file must exist. File paths must be absolute."
+    description = "Delete specified content ranges from a text file. The file must exist. File paths must be absolute. You need to provide the file_hash comes from get_text_file_contents."
 
     def get_tool_description(self) -> Tool:
         """Get the tool description."""
