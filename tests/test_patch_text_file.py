@@ -103,14 +103,78 @@ async def test_patch_text_file_unexpected_error(tmp_path, mocker):
         raise Exception("Unexpected test error")
 
     # Patch the editor's method using mocker
-    mocker.patch.object(editor, 'edit_file_contents', mock_edit_file_contents)
+    mocker.patch.object(editor, "edit_file_contents", mock_edit_file_contents)
 
     # Try to patch the file with the mocked error
-    with pytest.raises(RuntimeError, match="Error processing request: Unexpected test error"):
+    with pytest.raises(
+        RuntimeError, match="Error processing request: Unexpected test error"
+    ):
         await handler.run_tool(
             {
                 "file_path": file_path,
                 "file_hash": "dummy_hash",
-                "patches": [{"start": 1, "contents": "new content\n", "range_hash": "dummy_hash"}],
+                "patches": [
+                    {
+                        "start": 1,
+                        "contents": "new content\n",
+                        "range_hash": "dummy_hash",
+                    }
+                ],
             }
         )
+
+
+@pytest.mark.asyncio
+async def test_patch_text_file_overlapping(tmp_path):
+    """Test patching text with overlapping ranges should fail."""
+    # Create a test file
+    file_path = os.path.join(tmp_path, "test.txt")
+    editor = TextEditor()
+
+    # Create initial content
+    content = "line1\nline2\nline3\nline4\nline5\n"
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(content)
+
+    # Get file hash and range hash for first patch
+    file_info = await editor.read_multiple_ranges(
+        [{"file_path": str(file_path), "ranges": [{"start": 2, "end": 3}]}]
+    )
+
+    # Extract hashes for first patch
+    file_content = file_info[str(file_path)]
+    file_hash = file_content["file_hash"]
+    range_hash_1 = file_content["ranges"][0]["range_hash"]
+
+    # Get range hash for second patch
+    file_info = await editor.read_multiple_ranges(
+        [{"file_path": str(file_path), "ranges": [{"start": 3, "end": 4}]}]
+    )
+    range_hash_2 = file_info[str(file_path)]["ranges"][0]["range_hash"]
+
+    # Create overlapping patches
+    patches = [
+        {
+            "start": 2,
+            "end": 3,
+            "contents": "new line2\nnew line3\n",
+            "range_hash": range_hash_1,
+        },
+        {
+            "start": 3,
+            "end": 4,
+            "contents": "another new line3\nnew line4\n",
+            "range_hash": range_hash_2,
+        },
+    ]
+
+    # Try to apply overlapping patches
+    result = await editor.edit_file_contents(
+        str(file_path),
+        file_hash,
+        patches,
+    )
+
+    # Verify that the operation failed due to overlapping patches
+    assert result["result"] == "error"
+    assert result["reason"] == "Overlapping patches detected"
