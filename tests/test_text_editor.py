@@ -894,15 +894,15 @@ async def test_io_error_during_final_write(editor, tmp_path, monkeypatch):
 @pytest.mark.asyncio
 async def test_initialization_with_environment_error(monkeypatch):
     """Test TextEditor initialization when environment validation fails."""
-    
+
     def mock_validate_environment(self):
         raise EnvironmentError("Failed to validate environment")
-    
+
     # Patch the _validate_environment method
     monkeypatch.setattr(TextEditor, "_validate_environment", mock_validate_environment)
-    
+
     # Verify that initialization fails with the expected error
     with pytest.raises(EnvironmentError) as excinfo:
         TextEditor()
-    
+
     assert "Failed to validate environment" in str(excinfo.value)
