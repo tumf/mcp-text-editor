@@ -430,7 +430,7 @@ async def test_create_file_directory_error(editor, tmp_path, monkeypatch):
     assert "Failed to create directory" in result["reason"]
     assert "Permission denied" in result["reason"]
     assert "file_hash" not in result
-    assert result["content"] is None
+    assert "content" not in result
 
 
 @pytest.mark.asyncio
@@ -488,7 +488,7 @@ async def test_file_write_permission_error(editor, tmp_path):
     assert "Error editing file" in result["reason"]
     assert "Permission" in result["reason"]
     assert "file_hash" not in result
-    assert result["content"] is None
+    assert "content" not in result
 
 
 @pytest.mark.asyncio
@@ -566,7 +566,7 @@ async def test_new_file_with_non_empty_hash(editor, tmp_path):
     assert result["result"] == "error"
     assert "File not found and non-empty hash provided" in result["reason"]
     assert "file_hash" not in result
-    assert result["content"] is None
+    assert "content" not in result
 
 
 @pytest.mark.asyncio
@@ -619,7 +619,7 @@ async def test_create_file_directory_creation_failure(editor, tmp_path, monkeypa
     assert "Failed to create directory" in result["reason"]
     assert "Permission denied" in result["reason"]
     assert "file_hash" not in result
-    assert result["content"] is None
+    assert "content" not in result
 
 
 @pytest.mark.asyncio

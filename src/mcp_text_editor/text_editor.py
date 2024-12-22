@@ -239,7 +239,7 @@ class TextEditor:
                 - result: "ok" or "error"
                 - hash: New file hash if successful, None if error
                 - reason: Error message if result is "error"
-                    "content": None,
+                    "file_hash": None,
                 }
 
             # Read current file content and verify hash
@@ -251,7 +251,6 @@ class TextEditor:
                     return {
                         "result": "error",
                         "reason": "File not found and non-empty hash provided",
-                        "content": None,
                     }
                 # Create parent directories if they don't exist
                 parent_dir = os.path.dirname(file_path)
@@ -262,7 +261,6 @@ class TextEditor:
                         return {
                             "result": "error",
                             "reason": f"Failed to create directory: {str(e)}",
-                            "content": None,
                         }
                 # Initialize empty state for new file
                 current_content = ""
@@ -284,14 +282,11 @@ class TextEditor:
                     return {
                         "result": "error",
                         "reason": "Unexpected error - Cannot treat existing file as new",
-                        "file_hash": None,
-                        "content": None,
                     }
                 elif current_hash != expected_hash:
                     return {
                         "result": "error",
                         "reason": "FileHash mismatch - Please use get_text_file_contents tool to get current content and hashes, then retry with the updated hashes.",
-                        "content": None,
                     }
                 else:
                     lines = current_content.splitlines(keepends=True)
@@ -324,8 +319,6 @@ class TextEditor:
                         return {
                             "result": "error",
                             "reason": "Overlapping patches detected",
-                            "hash": None,
-                            "content": None,
                         }
 
             # Apply patches
@@ -355,12 +348,7 @@ class TextEditor:
                     and current_content
                     and expected_hash == ""
                 ):
-                    return {
-                        "result": "error",
-                        "reason": "Unexpected error",
-                        "file_hash": None,
-                        "content": None,
-                    }
+                    return {"result": "error", "reason": "Unexpected error"}
 
                 # Calculate line ranges for zero-based indexing
                 start_zero = start - 1
@@ -400,7 +388,6 @@ class TextEditor:
                             return {
                                 "result": "error",
                                 "reason": "Content range hash mismatch - Please use get_text_file_contents tool with the same start and end to get current content and hashes, then retry with the updated hashes.",
-                                "content": current_content,
                             }
 
                 # Prepare new content
@@ -435,18 +422,9 @@ class TextEditor:
             }
 
         except FileNotFoundError:
-            return {
-                "result": "error",
-                "reason": f"File not found: {file_path}",
-                "file_hash": None,
-                "content": None,
-            }
+            return {"result": "error", "reason": f"File not found: {file_path}"}
         except (IOError, UnicodeError, PermissionError) as e:
-            return {
-                "result": "error",
-                "reason": f"Error editing file: {str(e)}",
-                "content": None,
-            }
+            return {"result": "error", "reason": f"Error editing file: {str(e)}"}
         except Exception as e:
             import traceback
 
@@ -455,7 +433,7 @@ class TextEditor:
             return {
                 "result": "error",
                 "reason": "Unexpected error occurred",
-                "content": None,
+                "file_hash": None,
             }
 
     async def insert_text_file_contents(
