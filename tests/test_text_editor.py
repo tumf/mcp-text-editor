@@ -839,3 +839,80 @@ async def test_edit_file_without_end(editor, tmp_path):
 
     assert result["result"] == "ok"
     assert test_file.read_text() == "new line\nline2\nline3\n"
+
+
+def test_validate_environment():
+    """Test environment validation."""
+    # Currently _validate_environment is a placeholder
+    # This test ensures the method exists and can be called without errors
+    TextEditor()._validate_environment()
+
+
+@pytest.mark.asyncio
+async def test_io_error_during_final_write(editor, tmp_path, monkeypatch):
+    """Test handling of IO errors during final content writing."""
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("original content\n")
+
+    # Get file hash
+    content, _, _, file_hash, _, _ = await editor.read_file_contents(str(test_file))
+
+    # Mock open to raise IOError during final write
+    original_open = open
+    open_count = 0
+
+    def mock_open(*args, **kwargs):
+        nonlocal open_count
+        open_count += 1
+        if open_count > 1:  # Allow first open for reading, fail on write
+            raise IOError("Failed to write file")
+        return original_open(*args, **kwargs)
+
+    monkeypatch.setattr("builtins.open", mock_open)
+
+    # Try to edit file with mocked write error
+    result = await editor.edit_file_contents(
+        str(test_file),
+        file_hash,
+        [
+            {
+                "start": 1,
+                "end": 1,
+                "contents": "new content\n",
+                "range_hash": editor.calculate_hash("original content\n"),
+            }
+        ],
+    )
+
+    assert result["result"] == "error"
+    assert "Error editing file" in result["reason"]
+    assert "Failed to write file" in result["reason"]
+    assert test_file.read_text() == "original content\n"  # File should be unchanged
+    editor._validate_environment()
+
+
+@pytest.mark.asyncio
+async def test_initialization_with_environment_error(monkeypatch):
+    """Test TextEditor initialization when environment validation fails."""
+
+    def mock_validate_environment(self):
+        raise EnvironmentError("Failed to validate environment")
+
+    # Patch the _validate_environment method
+    monkeypatch.setattr(TextEditor, "_validate_environment", mock_validate_environment)
+
+    # Verify that initialization fails with the expected error
+    with pytest.raises(EnvironmentError, match="Failed to validate environment"):
+        TextEditor()
+
+
+@pytest.mark.asyncio
+async def test_read_file_not_found_error(editor, tmp_path):
+    """Test FileNotFoundError handling when reading a non-existent file."""
+    non_existent_file = tmp_path / "does_not_exist.txt"
+
+    with pytest.raises(FileNotFoundError) as excinfo:
+        await editor._read_file(str(non_existent_file))
+
+    assert "File not found:" in str(excinfo.value)
+    assert str(non_existent_file) in str(excinfo.value)

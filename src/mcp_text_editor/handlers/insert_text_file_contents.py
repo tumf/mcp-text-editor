@@ -85,14 +85,17 @@ class InsertTextFileContentsHandler(BaseHandler):
             is_before = "before" in arguments
             encoding = arguments.get("encoding", "utf-8")
 
+            # Get result from editor
             result = await self.editor.insert_text_file_contents(
                 file_path=file_path,
                 file_hash=arguments["file_hash"],
                 contents=arguments["contents"],
-                before=is_before,
-                line_number=line_number,
+                before=line_number if is_before else None,
+                after=None if is_before else line_number,
                 encoding=encoding,
             )
+            # Wrap result with file_path key
+            result = {file_path: result}
             return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
         except Exception as e:

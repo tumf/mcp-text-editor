@@ -12,7 +12,6 @@ from .handlers import (
     AppendTextFileContentsHandler,
     CreateTextFileHandler,
     DeleteTextFileContentsHandler,
-    EditTextFileContentsHandler,
     GetTextFileContentsHandler,
     InsertTextFileContentsHandler,
     PatchTextFileContentsHandler,
@@ -27,7 +26,6 @@ app = Server("mcp-text-editor")
 
 # Initialize tool handlers
 get_contents_handler = GetTextFileContentsHandler()
-edit_contents_handler = EditTextFileContentsHandler()
 patch_file_handler = PatchTextFileContentsHandler()
 create_file_handler = CreateTextFileHandler()
 append_file_handler = AppendTextFileContentsHandler()
@@ -40,7 +38,6 @@ async def list_tools() -> List[Tool]:
     """List available tools."""
     return [
         get_contents_handler.get_tool_description(),
-        edit_contents_handler.get_tool_description(),
         create_file_handler.get_tool_description(),
         append_file_handler.get_tool_description(),
         delete_contents_handler.get_tool_description(),
@@ -56,8 +53,6 @@ async def call_tool(name: str, arguments: Any) -> Sequence[TextContent]:
     try:
         if name == get_contents_handler.name:
             return await get_contents_handler.run_tool(arguments)
-        elif name == edit_contents_handler.name:
-            return await edit_contents_handler.run_tool(arguments)
         elif name == create_file_handler.name:
             return await create_file_handler.run_tool(arguments)
         elif name == append_file_handler.name:

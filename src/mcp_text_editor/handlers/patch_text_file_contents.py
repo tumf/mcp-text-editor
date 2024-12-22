@@ -17,7 +17,7 @@ class PatchTextFileContentsHandler(BaseHandler):
     """Handler for patching a text file."""
 
     name = "patch_text_file_contents"
-    description = "Apply patches to text files with hash-based validation for concurrency control."
+    description = "Apply patches to text files with hash-based validation for concurrency control.you need to use get_text_file_contents tool to get the file hash and range hash every time before using this tool. you can use append_text_file_contents tool to append text contents to the file without range hash, start and end. you can use insert_text_file_contents tool to insert text contents to the file without range hash, start and end."
 
     def get_tool_description(self) -> Tool:
         """Get the tool description."""
@@ -43,11 +43,11 @@ class PatchTextFileContentsHandler(BaseHandler):
                             "properties": {
                                 "start": {
                                     "type": "integer",
-                                    "description": "Starting line number (1-based)",
+                                    "description": "Starting line number (1-based).it should match the range hash.",
                                 },
                                 "end": {
                                     "type": ["integer", "null"],
-                                    "description": "Ending line number (null for end of file)",
+                                    "description": "Ending line number (null for end of file).it should match the range hash.",
                                 },
                                 "contents": {
                                     "type": "string",
@@ -55,7 +55,7 @@ class PatchTextFileContentsHandler(BaseHandler):
                                 },
                                 "range_hash": {
                                     "type": "string",
-                                    "description": "Hash of the content being replaced",
+                                    "description": "Hash of the content being replaced. it should get from get_text_file_contents tool with the same start and end.",
                                 },
                             },
                             "required": ["start", "contents", "range_hash"],
