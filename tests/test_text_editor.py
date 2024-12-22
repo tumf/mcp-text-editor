@@ -902,7 +902,17 @@ async def test_initialization_with_environment_error(monkeypatch):
     monkeypatch.setattr(TextEditor, "_validate_environment", mock_validate_environment)
 
     # Verify that initialization fails with the expected error
-    with pytest.raises(EnvironmentError) as excinfo:
+    with pytest.raises(EnvironmentError, match="Failed to validate environment"):
         TextEditor()
 
-    assert "Failed to validate environment" in str(excinfo.value)
+
+@pytest.mark.asyncio
+async def test_read_file_not_found_error(editor, tmp_path):
+    """Test FileNotFoundError handling when reading a non-existent file."""
+    non_existent_file = tmp_path / "does_not_exist.txt"
+
+    with pytest.raises(FileNotFoundError) as excinfo:
+        await editor._read_file(str(non_existent_file))
+
+    assert "File not found:" in str(excinfo.value)
+    assert str(non_existent_file) in str(excinfo.value)
