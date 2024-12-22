@@ -401,6 +401,21 @@ class TextEditor:
                         "suggestion": "delete",
                     }
 
+                # Set suggestions for alternative tools
+                suggestion = None
+                hint = None
+                if not os.path.exists(file_path) or not current_content:
+                    suggestion = "append"
+                    hint = "For new or empty files, please consider using append_text_file_contents instead"
+                elif is_insertion:
+                    if start_zero >= len(lines):
+                        suggestion = "append"
+                        hint = "For adding content at the end of file, please consider using append_text_file_contents instead"
+                    else:
+                        suggestion = "insert"
+                        hint = "For inserting content within file, please consider using insert_text_file_contents instead"
+
+                # Prepare the content
                 new_content = contents if contents.endswith("\n") else contents + "\n"
                 new_lines = new_content.splitlines(keepends=True)
 
@@ -424,6 +439,8 @@ class TextEditor:
                 "result": "ok",
                 "file_hash": new_hash,
                 "reason": None,
+                "suggestion": suggestion,
+                "hint": hint,
             }
 
         except FileNotFoundError:
