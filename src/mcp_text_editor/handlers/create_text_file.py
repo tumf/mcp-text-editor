@@ -43,7 +43,7 @@ class CreateTextFileHandler(BaseHandler):
                         "default": "utf-8",
                     },
                 },
-                "required": ["path", "contents"],
+                "required": ["file_path", "contents"],
             },
         )
 
