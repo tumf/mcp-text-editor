@@ -35,6 +35,8 @@ ENV/
 *.swo
 
 # Testing
+*.cover
+*,cover
 .coverage
 .coverage.*
 .pytest_cache/
