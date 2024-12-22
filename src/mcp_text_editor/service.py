@@ -151,6 +151,15 @@ class TextEditorService:
             lines = current_content.splitlines(keepends=True)
 
             # Validate ranges
+            if not request.ranges:  # Check for empty ranges list
+                return {
+                    request.file_path: EditResult(
+                        result="error",
+                        reason="Missing required argument: ranges",
+                        hash=current_hash,
+                    )
+                }
+
             if not self.validate_ranges(request.ranges, len(lines)):
                 return {
                     request.file_path: EditResult(
