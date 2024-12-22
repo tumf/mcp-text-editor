@@ -49,7 +49,7 @@ class TextEditor:
         Can be extended to check for specific permissions or configurations.
         """
         # Future: Add environment validation if needed
-        pass
+        pass  # pragma: no cover
 
     def _validate_file_path(self, file_path: str | os.PathLike) -> None:
         """
