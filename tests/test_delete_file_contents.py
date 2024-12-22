@@ -269,3 +269,33 @@ async def test_delete_text_file_contents_handler_validation():
         }
         await handler.run_tool(arguments)
     assert "File path must be absolute" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_delete_text_file_contents_handler_runtime_error(tmp_path):
+    """Test runtime error handling in DeleteTextFileContentsHandler."""
+    from mcp_text_editor.handlers.delete_text_file_contents import (
+        DeleteTextFileContentsHandler,
+    )
+    from mcp_text_editor.text_editor import TextEditor
+
+    class MockEditor(TextEditor):
+        async def edit_file_contents(self, *args, **kwargs):
+            raise RuntimeError("Mock error during edit")
+
+    editor = MockEditor()
+    handler = DeleteTextFileContentsHandler(editor)
+
+    test_file = tmp_path / "error_test.txt"
+    test_file.write_text("test content")
+
+    with pytest.raises(RuntimeError) as exc_info:
+        arguments = {
+            "file_path": str(test_file),
+            "file_hash": "some_hash",
+            "ranges": [{"start": 1, "end": 1, "range_hash": "hash1"}],
+            "encoding": "utf-8",
+        }
+        await handler.run_tool(arguments)
+
+    assert "Error processing request: Mock error during edit" in str(exc_info.value)
