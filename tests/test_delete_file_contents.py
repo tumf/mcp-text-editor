@@ -163,3 +163,23 @@ def test_delete_text_file_contents_empty_ranges(service, tmp_path):
     delete_result = result[file_path]
     assert delete_result.result == "error"
     assert "missing required argument: ranges" in delete_result.reason.lower()
+
+
+def test_delete_text_file_contents_nonexistent_file(service, tmp_path):
+    """Test deleting content from a nonexistent file."""
+    file_path = str(tmp_path / "nonexistent.txt")
+
+    # Create delete request for nonexistent file
+    request = DeleteTextFileContentsRequest(
+        file_path=file_path,
+        file_hash="some_hash",
+        ranges=[FileRange(start=1, end=1, range_hash="hash1")],
+        encoding="utf-8",
+    )
+
+    # Attempt delete
+    result = service.delete_text_file_contents(request)
+    assert file_path in result
+    delete_result = result[file_path]
+    assert delete_result.result == "error"
+    assert "no such file or directory" in delete_result.reason.lower()
