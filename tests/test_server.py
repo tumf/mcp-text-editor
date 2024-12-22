@@ -12,10 +12,15 @@ from pytest_mock import MockerFixture
 from mcp_text_editor.server import (
     GetTextFileContentsHandler,
     app,
+    append_file_handler,
     call_tool,
+    create_file_handler,
+    delete_contents_handler,
     get_contents_handler,
+    insert_file_handler,
     list_tools,
     main,
+    patch_file_handler,
 )
 
 
@@ -214,3 +219,31 @@ async def test_call_tool_general_exception():
     finally:
         # Restore original method
         get_contents_handler.run_tool = original_run_tool
+
+
+@pytest.mark.asyncio
+async def test_call_tool_all_handlers(mocker: MockerFixture):
+    """Test call_tool with all handlers."""
+    # Mock run_tool for each handler
+    handlers = [
+        create_file_handler,
+        append_file_handler,
+        delete_contents_handler,
+        insert_file_handler,
+        patch_file_handler,
+    ]
+
+    # Setup mocks for all handlers
+    async def mock_run_tool(args):
+        return [TextContent(text="mocked response", type="text")]
+
+    for handler in handlers:
+        mock = mocker.patch.object(handler, "run_tool")
+        mock.side_effect = mock_run_tool
+
+    # Test each handler
+    for handler in handlers:
+        result = await call_tool(handler.name, {"test": "args"})
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert result[0].text == "mocked response"
