@@ -17,7 +17,7 @@ class PatchTextFileContentsHandler(BaseHandler):
     """Handler for patching a text file."""
 
     name = "patch_text_file_contents"
-    description = "Apply patches to text files with hash-based validation for concurrency control.you need to use get_text_file_contents tool to get the file hash and range hash before using this tool."
+    description = "Apply patches to text files with hash-based validation for concurrency control.you need to use get_text_file_contents tool to get the file hash and range hash every time before using this tool."
 
     def get_tool_description(self) -> Tool:
         """Get the tool description."""
