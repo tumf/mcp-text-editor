@@ -19,8 +19,8 @@ def handler():
 
 @pytest.mark.asyncio
 async def test_missing_path(handler):
-    """Test handling of missing path argument."""
-    with pytest.raises(RuntimeError, match="Missing required argument: path"):
+    """Test handling of missing file_path argument."""
+    with pytest.raises(RuntimeError, match="Missing required argument: file_path"):
         await handler.run_tool({"file_hash": "hash", "contents": "content"})
 
 
@@ -28,14 +28,14 @@ async def test_missing_path(handler):
 async def test_missing_hash(handler):
     """Test handling of missing file_hash argument."""
     with pytest.raises(RuntimeError, match="Missing required argument: file_hash"):
-        await handler.run_tool({"path": "/tmp/test.txt", "contents": "content"})
+        await handler.run_tool({"file_path": "/tmp/test.txt", "contents": "content"})
 
 
 @pytest.mark.asyncio
 async def test_missing_contents(handler):
     """Test handling of missing contents argument."""
     with pytest.raises(RuntimeError, match="Missing required argument: contents"):
-        await handler.run_tool({"path": "/tmp/test.txt", "file_hash": "hash"})
+        await handler.run_tool({"file_path": "/tmp/test.txt", "file_hash": "hash"})
 
 
 @pytest.mark.asyncio
@@ -44,7 +44,7 @@ async def test_relative_path(handler):
     with pytest.raises(RuntimeError, match="File path must be absolute"):
         await handler.run_tool(
             {
-                "path": "relative/path.txt",
+                "file_path": "relative/path.txt",
                 "file_hash": "hash",
                 "contents": "content",
                 "before": 1,
@@ -59,7 +59,7 @@ async def test_neither_before_nor_after(handler):
         RuntimeError, match="Exactly one of 'before' or 'after' must be specified"
     ):
         await handler.run_tool(
-            {"path": "/tmp/test.txt", "file_hash": "hash", "contents": "content"}
+            {"file_path": "/tmp/test.txt", "file_hash": "hash", "contents": "content"}
         )
 
 
@@ -71,7 +71,7 @@ async def test_both_before_and_after(handler):
     ):
         await handler.run_tool(
             {
-                "path": "/tmp/test.txt",
+                "file_path": "/tmp/test.txt",
                 "file_hash": "hash",
                 "contents": "content",
                 "before": 1,
@@ -95,7 +95,7 @@ async def test_successful_insert_before(handler, tmp_path):
 
     result = await handler.run_tool(
         {
-            "path": file_path,
+            "file_path": file_path,
             "file_hash": init_hash,
             "contents": "new_line\n",
             "before": 2,

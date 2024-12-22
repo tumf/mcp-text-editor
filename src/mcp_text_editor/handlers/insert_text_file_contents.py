@@ -17,7 +17,7 @@ class InsertTextFileContentsHandler(BaseHandler):
     """Handler for inserting content before or after a specific line in a text file."""
 
     name = "insert_text_file_contents"
-    description = "Insert content before or after a specific line in a text file. Uses hash-based validation for concurrency control."
+    description = "Insert content before or after a specific line in a text file. Uses hash-based validation for concurrency control. You need to provide the file_hash comes from get_text_file_contents."
 
     def get_tool_description(self) -> Tool:
         """Get the tool description."""
@@ -27,7 +27,7 @@ class InsertTextFileContentsHandler(BaseHandler):
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "path": {
+                    "file_path": {
                         "type": "string",
                         "description": "Path to the text file. File path must be absolute.",
                     },
@@ -53,21 +53,21 @@ class InsertTextFileContentsHandler(BaseHandler):
                         "default": "utf-8",
                     },
                 },
-                "required": ["path", "file_hash", "contents"],
+                "required": ["file_path", "file_hash", "contents"],
             },
         )
 
     async def run_tool(self, arguments: Dict[str, Any]) -> Sequence[TextContent]:
         """Execute the tool with given arguments."""
         try:
-            if "path" not in arguments:
-                raise RuntimeError("Missing required argument: path")
+            if "file_path" not in arguments:
+                raise RuntimeError("Missing required argument: file_path")
             if "file_hash" not in arguments:
                 raise RuntimeError("Missing required argument: file_hash")
             if "contents" not in arguments:
                 raise RuntimeError("Missing required argument: contents")
 
-            file_path = arguments["path"]
+            file_path = arguments["file_path"]
             if not os.path.isabs(file_path):
                 raise RuntimeError(f"File path must be absolute: {file_path}")
 

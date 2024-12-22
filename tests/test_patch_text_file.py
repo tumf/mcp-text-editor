@@ -54,6 +54,53 @@ async def test_patch_text_file_middle(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_patch_text_file_empty_content(tmp_path):
+    """Test patching with empty content suggests using delete_text_file_contents."""
+    # Create a test file
+    file_path = os.path.join(tmp_path, "test.txt")
+    editor = TextEditor()
+
+    # Create initial content
+    content = "line1\nline2\nline3\nline4\nline5\n"
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(content)
+
+    # Get file hash and range hash
+    file_info = await editor.read_multiple_ranges(
+        [{"file_path": str(file_path), "ranges": [{"start": 2, "end": 3}]}]
+    )
+
+    # Extract file and range hashes
+    file_content = file_info[str(file_path)]
+    file_hash = file_content["file_hash"]
+    range_hash = file_content["ranges"][0]["range_hash"]
+
+    # Patch the file with empty content
+    patch = {
+        "start": 2,
+        "end": 3,
+        "contents": "",
+        "range_hash": range_hash,
+    }
+    result = await editor.edit_file_contents(
+        str(file_path),
+        file_hash,
+        [patch],
+    )
+
+    # Verify that the operation suggests using delete_text_file_contents
+    assert result["result"] == "ok"
+    assert result["file_hash"] == file_hash
+    assert "delete_text_file_contents" in result["hint"]
+    assert result["suggestion"] == "delete"
+
+    # Verify file content remains unchanged
+    with open(file_path, "r", encoding="utf-8") as f:
+        updated_content = f.read()
+    assert updated_content == content
+
+
+@pytest.mark.asyncio
 async def test_patch_text_file_errors(tmp_path):
     """Test error handling when patching a file."""
     editor = TextEditor()
