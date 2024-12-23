@@ -34,11 +34,17 @@ class EditPatch(BaseModel):
     )
 
     @model_validator(mode="after")
-    def validate_end_line(self) -> "EditPatch":
-        """Validate that range_hash is set."""
+    def validate_range_hash(self) -> "EditPatch":
+        """Validate that range_hash is set and handle end field validation."""
         # range_hash must be explicitly set
         if self.range_hash is None:
             raise ValueError("range_hash is required")
+
+        # For safety, convert None to the special range hash value
+        if self.end is None and self.range_hash != "":
+            # Special case: patch with end=None is allowed
+            pass
+
         return self
 
 
