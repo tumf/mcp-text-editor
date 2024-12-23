@@ -5,7 +5,8 @@ import logging
 import os
 from typing import Any, Dict, List, Optional, Tuple
 
-from mcp_text_editor.models import DeleteTextFileContentsRequest, EditPatch, FileRanges
+from .models import DeleteTextFileContentsRequest, EditPatch, FileRanges
+from .service import TextEditorService
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,7 @@ class TextEditor:
     def __init__(self):
         """Initialize TextEditor."""
         self._validate_environment()
+        self.service = TextEditorService()
 
     def _validate_environment(self) -> None:
         """

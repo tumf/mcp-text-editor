@@ -277,13 +277,15 @@ async def test_delete_text_file_contents_handler_runtime_error(tmp_path):
     from mcp_text_editor.handlers.delete_text_file_contents import (
         DeleteTextFileContentsHandler,
     )
+    from mcp_text_editor.service import TextEditorService
     from mcp_text_editor.text_editor import TextEditor
 
-    class MockEditor(TextEditor):
-        async def edit_file_contents(self, *args, **kwargs):
-            raise RuntimeError("Mock error during edit")
+    class MockService(TextEditorService):
+        def delete_text_file_contents(self, request):
+            raise RuntimeError("Mock error during delete")
 
-    editor = MockEditor()
+    editor = TextEditor()
+    editor.service = MockService()
     handler = DeleteTextFileContentsHandler(editor)
 
     test_file = tmp_path / "error_test.txt"
@@ -298,4 +300,4 @@ async def test_delete_text_file_contents_handler_runtime_error(tmp_path):
         }
         await handler.run_tool(arguments)
 
-    assert "Error processing request: Mock error during edit" in str(exc_info.value)
+    assert "Error processing request: Mock error during delete" in str(exc_info.value)
