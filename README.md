@@ -3,6 +3,7 @@
 [![codecov](https://codecov.io/gh/tumf/mcp-text-editor/branch/main/graph/badge.svg?token=52D51U0ZUR)](https://codecov.io/gh/tumf/mcp-text-editor)
 
 A Model Context Protocol (MCP) server that provides line-oriented text file editing capabilities through a standardized API. Optimized for LLM tools with efficient partial file access to minimize token usage.
+[![smithery badge](https://smithery.ai/badge/mcp-text-editor)](https://smithery.ai/server/mcp-text-editor)
 
 <a href="https://glama.ai/mcp/servers/k44dnvso10"><img width="380" height="200" src="https://glama.ai/mcp/servers/k44dnvso10/badge" alt="mcp-text-editor MCP server" /></a>
 
@@ -83,6 +84,15 @@ uv pip install -e ".[dev]"
 ```
 
 ## Installation
+
+### Installing via Smithery
+
+To install Text Editor Server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/mcp-text-editor):
+
+```bash
+npx -y @smithery/cli install mcp-text-editor --client claude
+```
+
 
 ```bash
 pip install -e .
