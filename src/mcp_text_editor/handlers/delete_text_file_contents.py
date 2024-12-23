@@ -106,9 +106,16 @@ class DeleteTextFileContentsHandler(BaseHandler):
             )
 
             # Execute deletion using the service
-            result = self.editor.service.delete_text_file_contents(request)
+            result_dict = self.editor.service.delete_text_file_contents(request)
 
-            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+            # Convert EditResults to dictionaries
+            serializable_result = {}
+            for file_path, edit_result in result_dict.items():
+                serializable_result[file_path] = edit_result.to_dict()
+
+            return [
+                TextContent(type="text", text=json.dumps(serializable_result, indent=2))
+            ]
 
         except Exception as e:
             logger.error(f"Error processing request: {str(e)}")
