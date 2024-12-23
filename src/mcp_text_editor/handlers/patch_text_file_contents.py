@@ -46,7 +46,7 @@ class PatchTextFileContentsHandler(BaseHandler):
                                     "description": "Starting line number (1-based).it should match the range hash.",
                                 },
                                 "end": {
-                                    "type": ["integer", "null"],
+                                    "type": "integer",
                                     "description": "Ending line number (null for end of file).it should match the range hash.",
                                 },
                                 "contents": {
@@ -58,7 +58,7 @@ class PatchTextFileContentsHandler(BaseHandler):
                                     "description": "Hash of the content being replaced. it should get from get_text_file_contents tool with the same start and end.",
                                 },
                             },
-                            "required": ["start", "contents", "range_hash"],
+                            "required": ["start", "end", "contents", "range_hash"],
                         },
                     },
                     "encoding": {
