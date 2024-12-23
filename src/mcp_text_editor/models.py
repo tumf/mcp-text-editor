@@ -35,14 +35,10 @@ class EditPatch(BaseModel):
 
     @model_validator(mode="after")
     def validate_end_line(self) -> "EditPatch":
-        """Validate that end line is present when not in append mode."""
+        """Validate that range_hash is set."""
         # range_hash must be explicitly set
         if self.range_hash is None:
             raise ValueError("range_hash is required")
-
-        # For modifications (non-empty range_hash), end is required
-        if self.range_hash != "" and self.end is None:
-            raise ValueError("end line is required when not in append mode")
         return self
 
 
