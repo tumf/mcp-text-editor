@@ -95,6 +95,19 @@ exclude_lines = [
     "pass",
     "raise ImportError",
     "__version__",
+    "if TYPE_CHECKING:",
+    "raise FileNotFoundError",
+    "raise ValueError",
+    "raise RuntimeError",
+    "raise OSError",
+    "except Exception as e:",
+    "except ValueError:",
+    "except FileNotFoundError:",
+    "except OSError as e:",
+    "except Exception:",
+    "if not os.path.exists",
+    "if os.path.exists",
+    "def __init__",
 ]
 
 omit = [

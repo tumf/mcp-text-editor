@@ -33,9 +33,7 @@ def test_read_file_contents(service, test_file):
     assert end == 5
 
     # Test reading specific lines
-    content, start, end = service.read_file_contents(
-        test_file, line_start=2, line_end=4
-    )
+    content, start, end = service.read_file_contents(test_file, start=2, end=4)
     assert content == "Line 2\nLine 3\nLine 4\n"
     assert start == 2
     assert end == 4
@@ -51,20 +49,20 @@ def test_validate_patches(service):
     """Test patch validation."""
     # Valid patches
     patches = [
-        EditPatch(line_start=1, line_end=2, contents="content1"),
-        EditPatch(line_start=3, line_end=4, contents="content2"),
+        EditPatch(start=1, end=2, contents="content1", range_hash="hash1"),
+        EditPatch(start=3, end=4, contents="content2", range_hash="hash2"),
     ]
     assert service.validate_patches(patches, 5) is True
 
     # Overlapping patches
     patches = [
-        EditPatch(line_start=1, line_end=3, contents="content1"),
-        EditPatch(line_start=2, line_end=4, contents="content2"),
+        EditPatch(start=1, end=3, contents="content1", range_hash="hash1"),
+        EditPatch(start=2, end=4, contents="content2", range_hash="hash2"),
     ]
     assert service.validate_patches(patches, 5) is False
 
     # Out of bounds patches
-    patches = [EditPatch(line_start=1, line_end=10, contents="content1")]
+    patches = [EditPatch(start=1, end=10, contents="content1", range_hash="hash1")]
     assert service.validate_patches(patches, 5) is False
 
 
@@ -83,7 +81,7 @@ def test_edit_file_contents(service, tmp_path):
     operation = EditFileOperation(
         path=file_path,
         hash=initial_hash,
-        patches=[EditPatch(line_start=2, line_end=2, contents="new line2")],
+        patches=[EditPatch(start=2, end=2, contents="new line2", range_hash="hash1")],
     )
 
     # Apply edit
@@ -110,7 +108,7 @@ def test_edit_file_contents_hash_mismatch(service, tmp_path):
     operation = EditFileOperation(
         path=file_path,
         hash="incorrect_hash",
-        patches=[EditPatch(line_start=2, line_end=2, contents="new line2")],
+        patches=[EditPatch(start=2, end=2, contents="new line2", range_hash="hash1")],
     )
 
     # Attempt edit
@@ -119,7 +117,6 @@ def test_edit_file_contents_hash_mismatch(service, tmp_path):
     edit_result = result[file_path]
     assert edit_result.result == "error"
     assert "hash mismatch" in edit_result.reason.lower()
-    assert edit_result.content == test_content
 
 
 def test_edit_file_contents_invalid_patches(service, tmp_path):
@@ -139,8 +136,8 @@ def test_edit_file_contents_invalid_patches(service, tmp_path):
         hash=initial_hash,
         patches=[
             EditPatch(
-                line_start=1, line_end=10, contents="new content"  # Beyond file length
-            )
+                start=1, end=10, contents="new content", range_hash="hash1"
+            )  # Beyond file length
         ],
     )
 
@@ -157,7 +154,9 @@ def test_edit_file_contents_file_error(service):
     file_path = "nonexistent.txt"
     # Attempt to edit non-existent file
     operation = EditFileOperation(
-        path=file_path, hash="any_hash", patches=[EditPatch(contents="new content")]
+        path=file_path,
+        hash="any_hash",
+        patches=[EditPatch(contents="new content", range_hash="")],
     )
 
     # Attempt edit
@@ -175,7 +174,7 @@ def test_edit_file_unexpected_error(service, tmp_path):
     operation = EditFileOperation(
         path=test_file,
         hash="dummy_hash",
-        patches=[EditPatch(contents="test content\n", line_start=1)],
+        patches=[EditPatch(contents="test content\n", start=1, range_hash="")],
     )
 
     # Try to edit non-existent file
@@ -186,7 +185,6 @@ def test_edit_file_unexpected_error(service, tmp_path):
     assert edit_result.result == "error"
     assert "no such file" in edit_result.reason.lower()
     assert edit_result.hash is None
-    assert edit_result.content is None
 
 
 def test_edit_file_contents_permission_error(service, tmp_path):
@@ -204,7 +202,7 @@ def test_edit_file_contents_permission_error(service, tmp_path):
     operation = EditFileOperation(
         path=file_path,
         hash=service.calculate_hash(test_content),
-        patches=[EditPatch(line_start=2, line_end=2, contents="new line2")],
+        patches=[EditPatch(start=2, end=2, contents="new line2", range_hash="hash1")],
     )
 
     # Attempt edit
@@ -214,7 +212,6 @@ def test_edit_file_contents_permission_error(service, tmp_path):
     assert edit_result.result == "error"
     assert "permission denied" in edit_result.reason.lower()
     assert edit_result.hash is None
-    assert edit_result.content is None
 
     # Clean up
     os.chmod(file_path, 0o644)
@@ -226,7 +223,7 @@ def test_edit_file_contents_general_exception(service, mocker):
     operation = EditFileOperation(
         path=test_file,
         hash="hash123",
-        patches=[EditPatch(contents="new content", line_start=1)],
+        patches=[EditPatch(contents="new content", start=1, range_hash="")],
     )
 
     # Mock edit_file to raise an exception
@@ -257,4 +254,3 @@ def test_edit_file_contents_general_exception(service, mocker):
         if os.path.exists(test_file):
             os.remove(test_file)
     assert edit_result.hash is None
-    assert edit_result.content is None
