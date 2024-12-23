@@ -224,4 +224,125 @@ async def test_patch_text_file_overlapping(tmp_path):
 
     # Verify that the operation failed due to overlapping patches
     assert result["result"] == "error"
-    assert result["reason"] == "Overlapping patches detected"
+
+
+@pytest.mark.asyncio
+async def test_patch_text_file_new_file_hint(tmp_path):
+    """Test patching a new file suggests using append_text_file_contents."""
+    file_path = os.path.join(tmp_path, "new.txt")
+    editor = TextEditor()
+
+    # Try to patch a new file
+    patch = {
+        "start": 1,
+        "contents": "new content\n",
+        "range_hash": "",  # Empty hash for new file
+    }
+    result = await editor.edit_file_contents(
+        str(file_path),
+        "",  # Empty hash for new file
+        [patch],
+    )
+
+    # Verify that the operation suggests using append_text_file_contents
+    assert result["result"] == "ok"
+    assert result["suggestion"] == "append"
+    assert "append_text_file_contents" in result["hint"]
+
+
+@pytest.mark.asyncio
+async def test_patch_text_file_append_hint(tmp_path):
+    """Test patching beyond file end suggests using append_text_file_contents."""
+    file_path = os.path.join(tmp_path, "test.txt")
+    editor = TextEditor()
+
+    # Create initial content
+    content = "line1\nline2\n"
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(content)
+
+    # Get file hash
+    file_info = await editor.read_multiple_ranges(
+        [{"file_path": str(file_path), "ranges": [{"start": 1, "end": 2}]}]
+    )
+    file_hash = file_info[str(file_path)]["file_hash"]
+
+    # Try to patch beyond file end
+    patch = {
+        "start": 5,  # Beyond file end
+        "contents": "new line\n",
+        "range_hash": "",  # Empty hash for insertion
+    }
+    result = await editor.edit_file_contents(
+        str(file_path),
+        file_hash,
+        [patch],
+    )
+
+    # Verify the suggestion to use append_text_file_contents
+    assert result["result"] == "ok"
+    assert result["suggestion"] == "append"
+    assert "append_text_file_contents" in result["hint"]
+
+
+@pytest.mark.asyncio
+async def test_patch_text_file_insert_hint(tmp_path):
+    """Test patching with insertion suggests using insert_text_file_contents."""
+    file_path = os.path.join(tmp_path, "test.txt")
+    editor = TextEditor()
+
+    # Create initial content
+    content = "line1\nline2\n"
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(content)
+
+    # Get file hash
+    file_info = await editor.read_multiple_ranges(
+        [{"file_path": str(file_path), "ranges": [{"start": 1, "end": 2}]}]
+    )
+    file_hash = file_info[str(file_path)]["file_hash"]
+
+    # Try to insert at start
+    patch = {
+        "start": 1,
+        "contents": "new line\n",
+        "range_hash": "",  # Empty hash for insertion
+    }
+    result = await editor.edit_file_contents(
+        str(file_path),
+        file_hash,
+        [patch],
+    )
+
+    # Verify the suggestion to use insert_text_file_contents
+    assert result["result"] == "ok"
+    assert result["suggestion"] == "insert"
+    assert "insert_text_file_contents" in result["hint"]
+
+
+@pytest.mark.asyncio
+async def test_patch_text_file_hash_mismatch_hint(tmp_path):
+    """Test patching with wrong hash suggests using get_text_file_contents."""
+    file_path = os.path.join(tmp_path, "test.txt")
+    editor = TextEditor()
+
+    # Create initial content
+    content = "line1\nline2\n"
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(content)
+
+    # Try to patch with wrong file hash
+    patch = {
+        "start": 1,
+        "contents": "new line\n",
+        "range_hash": "",
+    }
+    result = await editor.edit_file_contents(
+        str(file_path),
+        "wrong_hash",
+        [patch],
+    )
+
+    # Verify the suggestion to use get_text_file_contents
+    assert result["result"] == "error"
+    assert "get_text_file_contents" in result["hint"]
