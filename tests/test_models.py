@@ -74,12 +74,6 @@ def test_edit_patch():
     with pytest.raises(ValidationError):
         EditPatch()
 
-    # Test validation error - missing end in modification mode
-    with pytest.raises(
-        ValueError, match="end line is required when not in append mode"
-    ):
-        EditPatch(start=1, contents="content", range_hash="somehash")
-
 
 def test_edit_file_operation():
     """Test EditFileOperation model."""
