@@ -68,7 +68,7 @@ class CreateTextFileHandler(BaseHandler):
             # Create new file using edit_file_contents with empty expected_hash
             result = await self.editor.edit_file_contents(
                 file_path,
-                expected_hash="",  # Empty hash for new file
+                expected_file_hash="",  # Empty hash for new file
                 patches=[
                     {
                         "start": 1,
