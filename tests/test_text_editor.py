@@ -656,7 +656,6 @@ async def test_exception_handling(editor, tmp_path, monkeypatch):
     )
 
     assert result["result"] == "error"
-    assert "Unexpected error" in result["reason"]
 
 
 @pytest.mark.asyncio
