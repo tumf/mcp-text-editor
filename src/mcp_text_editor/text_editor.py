@@ -493,7 +493,7 @@ class TextEditor:
             logger.error(f"Error: {str(e)}")
             logger.error(f"Traceback:\n{traceback.format_exc()}")
             return self.create_error_response(
-                "Unexpected error occurred",
+                f"Error: {str(e)}",
                 suggestion="patch",
                 hint="Please try again or report the issue if it persists",
             )
