@@ -94,7 +94,7 @@ class PatchTextFileContentsHandler(BaseHandler):
             # Apply patches using editor.edit_file_contents
             result = await self.editor.edit_file_contents(
                 file_path=file_path,
-                expected_hash=arguments["file_hash"],
+                expected_file_hash=arguments["file_hash"],
                 patches=arguments["patches"],
                 encoding=encoding,
             )

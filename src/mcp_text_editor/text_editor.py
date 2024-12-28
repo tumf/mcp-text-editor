@@ -223,7 +223,7 @@ class TextEditor:
     async def edit_file_contents(
         self,
         file_path: str,
-        expected_hash: str,
+        expected_file_hash: str,
         patches: List[Dict[str, Any]],
         encoding: str = "utf-8",
     ) -> Dict[str, Any]:
@@ -252,7 +252,7 @@ class TextEditor:
         self._validate_file_path(file_path)
         try:
             if not os.path.exists(file_path):
-                if expected_hash not in ["", None]:  # Allow null hash
+                if expected_file_hash not in ["", None]:  # Allow null hash
                     return self.create_error_response(
                         "File not found and non-empty hash provided",
                         suggestion="append",
@@ -270,31 +270,31 @@ class TextEditor:
                             hint="Please check file permissions and try again",
                         )
                 # Initialize empty state for new file
-                current_content = ""
-                current_hash = ""
+                current_file_content = ""
+                current_file_hash = ""
                 lines: List[str] = []
                 encoding = "utf-8"
             else:
                 # Read current file content and verify hash
                 (
-                    current_content,
+                    current_file_content,
                     _,
                     _,
-                    current_hash,
+                    current_file_hash,
                     total_lines,
                     _,
                 ) = await self.read_file_contents(file_path, encoding=encoding)
 
                 # Treat empty file as new file
-                if not current_content:
-                    current_content = ""
-                    current_hash = ""
+                if not current_file_content:
+                    current_file_content = ""
+                    current_file_hash = ""
                     lines = []
-                elif current_content and expected_hash == "":
+                elif current_file_content and expected_file_hash == "":
                     return self.create_error_response(
                         "Unexpected error - Cannot treat existing file as new",
                     )
-                elif current_hash != expected_hash:
+                elif current_file_hash != expected_file_hash:
                     suggestion = "patch"
                     hint = "Please use get_text_file_contents tool to get the current content and hash"
 
@@ -304,8 +304,8 @@ class TextEditor:
                         hint=hint,
                     )
                 else:
-                    lines = current_content.splitlines(keepends=True)
-                    lines = current_content.splitlines(keepends=True)
+                    lines = current_file_content.splitlines(keepends=True)
+                    lines = current_file_content.splitlines(keepends=True)
 
             # Convert patches to EditPatch objects
             patch_objects = [EditPatch.model_validate(p) for p in patches]
@@ -356,16 +356,26 @@ class TextEditor:
                         "result": "error",
                         "reason": "End line must be greater than or equal to start line",
                         "file_hash": None,
-                        "content": current_content,
+                        "content": current_file_content,
                     }
 
                 # Handle unexpected empty hash for existing file
                 if (
                     os.path.exists(file_path)
-                    and current_content
-                    and expected_hash == ""
+                    and current_file_content
+                    and expected_file_hash == ""
                 ):
-                    return {"result": "error", "reason": "Unexpected error"}
+                    return {
+                        "result": "error",
+                        "reason": "File hash validation required: Empty hash provided for existing file",
+                        "details": {
+                            "file_path": file_path,
+                            "current_file_hash": self.calculate_hash(
+                                current_file_content
+                            ),
+                            "expected_file_hash": expected_file_hash,
+                        },
+                    }
 
                 # Calculate line ranges for zero-based indexing
                 start_zero = start - 1
@@ -379,7 +389,7 @@ class TextEditor:
                     expected_range_hash = patch.range_hash
 
                 # Determine operation type and validate hash requirements
-                if not os.path.exists(file_path) or not current_content:
+                if not os.path.exists(file_path) or not current_file_content:
                     # New file or empty file - treat as insertion
                     is_insertion = True
                 elif start_zero >= len(lines):
@@ -418,7 +428,7 @@ class TextEditor:
                 if not contents.strip():
                     return {
                         "result": "ok",
-                        "file_hash": current_hash,  # Return current hash since no changes made
+                        "file_hash": current_file_hash,  # Return current hash since no changes made
                         "hint": "For content deletion, please consider using delete_text_file_contents instead of patch with empty content",
                         "suggestion": "delete",
                     }
@@ -426,7 +436,7 @@ class TextEditor:
                 # Set suggestions for alternative tools
                 suggestion_text: Optional[str] = None
                 hint_text: Optional[str] = None
-                if not os.path.exists(file_path) or not current_content:
+                if not os.path.exists(file_path) or not current_file_content:
                     suggestion_text = "append"
                     hint_text = "For new or empty files, please consider using append_text_file_contents instead"
                 elif is_insertion:
