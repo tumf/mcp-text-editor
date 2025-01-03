@@ -1,5 +1,34 @@
 # Changelog
 
+## [1.1.0] - 2024-12-23
+
+### Added
+
+- New text file manipulation operations:
+  - `insert_text_file_contents`: Insert content at specific positions
+  - `create_text_file`: Create new text files
+  - `append_text_file_contents`: Append content to existing files
+  - `delete_text_file_contents`: Delete specified ranges of text
+  - `patch_text_file_contents`: Apply multiple patches to text files
+- Enhanced error messages with useful suggestions for alternative editing methods
+
+### Changed
+
+- Unified parameter naming: renamed 'path' to 'file_path' across all APIs
+- Improved handler organization by moving them to separate directory
+- Made 'end' parameter required when not in append mode
+- Enhanced validation for required parameters and file path checks
+- Removed 'edit_text_file_contents' tool in favor of more specific operations
+- Improved JSON serialization for handler responses
+
+### Fixed
+
+- Delete operation now uses dedicated deletion method instead of empty content replacement
+- Improved range validation in delete operations
+- Enhanced error handling across all operations
+- Removed file hash from error responses for better clarity
+- Fixed concurrency control with proper hash validation
+
 ## [1.0.2] - 2024-12-22
 
 ### Fixed

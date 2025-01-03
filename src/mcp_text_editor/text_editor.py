@@ -5,35 +5,10 @@ import logging
 import os
 from typing import Any, Dict, List, Optional, Tuple
 
-from mcp_text_editor.models import DeleteTextFileContentsRequest, EditPatch, FileRanges
+from .models import DeleteTextFileContentsRequest, EditPatch, FileRanges
+from .service import TextEditorService
 
 logger = logging.getLogger(__name__)
-
-
-def _create_error_response(
-    error_message: str,
-    content_hash: Optional[str] = None,
-    file_path: Optional[str] = None,
-) -> Dict[str, Any]:
-    """Create a standardized error response.
-
-    Args:
-        error_message (str): The error message to include
-        content_hash (Optional[str], optional): Hash of the current content if available
-        file_path (Optional[str], optional): File path to use as dictionary key
-
-    Returns:
-        Dict[str, Any]: Standardized error response structure
-    """
-    error_response = {
-        "result": "error",
-        "reason": error_message,
-        "hash": content_hash,
-    }
-
-    if file_path:
-        return {file_path: error_response}
-    return error_response
 
 
 class TextEditor:
@@ -42,6 +17,45 @@ class TextEditor:
     def __init__(self):
         """Initialize TextEditor."""
         self._validate_environment()
+        self.service = TextEditorService()
+
+    def create_error_response(
+        self,
+        error_message: str,
+        content_hash: Optional[str] = None,
+        file_path: Optional[str] = None,
+        suggestion: Optional[str] = None,
+        hint: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create a standardized error response.
+
+        Args:
+            error_message (str): The error message to include
+            content_hash (Optional[str], optional): Hash of the current content if available
+            file_path (Optional[str], optional): File path to use as dictionary key
+            suggestion (Optional[str], optional): Suggested operation type
+            hint (Optional[str], optional): Hint message for users
+
+        Returns:
+            Dict[str, Any]: Standardized error response structure
+        """
+        error_response = {
+            "result": "error",
+            "reason": error_message,
+            "file_hash": content_hash,
+        }
+
+        # Add fields if provided
+        if content_hash is not None:
+            error_response["file_hash"] = content_hash
+        if suggestion:
+            error_response["suggestion"] = suggestion
+        if hint:
+            error_response["hint"] = hint
+
+        if file_path:
+            return {file_path: error_response}
+        return error_response
 
     def _validate_environment(self) -> None:
         """
@@ -209,7 +223,7 @@ class TextEditor:
     async def edit_file_contents(
         self,
         file_path: str,
-        expected_hash: str,
+        expected_file_hash: str,
         patches: List[Dict[str, Any]],
         encoding: str = "utf-8",
     ) -> Dict[str, Any]:
@@ -238,54 +252,60 @@ class TextEditor:
         self._validate_file_path(file_path)
         try:
             if not os.path.exists(file_path):
-                if expected_hash not in ["", None]:  # Allow null hash
-                    return {
-                        "result": "error",
-                        "reason": "File not found and non-empty hash provided",
-                    }
+                if expected_file_hash not in ["", None]:  # Allow null hash
+                    return self.create_error_response(
+                        "File not found and non-empty hash provided",
+                        suggestion="append",
+                        hint="For new files, please consider using append_text_file_contents",
+                    )
                 # Create parent directories if they don't exist
                 parent_dir = os.path.dirname(file_path)
                 if parent_dir:
                     try:
                         os.makedirs(parent_dir, exist_ok=True)
                     except OSError as e:
-                        return {
-                            "result": "error",
-                            "reason": f"Failed to create directory: {str(e)}",
-                        }
+                        return self.create_error_response(
+                            f"Failed to create directory: {str(e)}",
+                            suggestion="patch",
+                            hint="Please check file permissions and try again",
+                        )
                 # Initialize empty state for new file
-                current_content = ""
-                current_hash = ""
+                current_file_content = ""
+                current_file_hash = ""
                 lines: List[str] = []
                 encoding = "utf-8"
             else:
                 # Read current file content and verify hash
                 (
-                    current_content,
+                    current_file_content,
                     _,
                     _,
-                    current_hash,
+                    current_file_hash,
                     total_lines,
                     _,
                 ) = await self.read_file_contents(file_path, encoding=encoding)
 
                 # Treat empty file as new file
-                if not current_content:
-                    current_content = ""
-                    current_hash = ""
+                if not current_file_content:
+                    current_file_content = ""
+                    current_file_hash = ""
                     lines = []
-                elif current_content and expected_hash == "":
-                    return {
-                        "result": "error",
-                        "reason": "Unexpected error - Cannot treat existing file as new",
-                    }
-                elif current_hash != expected_hash:
-                    return {
-                        "result": "error",
-                        "reason": "FileHash mismatch - Please use get_text_file_contents tool to get current content and hashes, then retry with the updated hashes.",
-                    }
+                elif current_file_content and expected_file_hash == "":
+                    return self.create_error_response(
+                        "Unexpected error - Cannot treat existing file as new",
+                    )
+                elif current_file_hash != expected_file_hash:
+                    suggestion = "patch"
+                    hint = "Please use get_text_file_contents tool to get the current content and hash"
+
+                    return self.create_error_response(
+                        "FileHash mismatch - Please use get_text_file_contents tool to get current content and hashes, then retry with the updated hashes.",
+                        suggestion=suggestion,
+                        hint=hint,
+                    )
                 else:
-                    lines = current_content.splitlines(keepends=True)
+                    lines = current_file_content.splitlines(keepends=True)
+                    lines = current_file_content.splitlines(keepends=True)
 
             # Convert patches to EditPatch objects
             patch_objects = [EditPatch.model_validate(p) for p in patches]
@@ -312,10 +332,11 @@ class TextEditor:
                     if (start1 <= end2 and end1 >= start2) or (
                         start2 <= end1 and end2 >= start1
                     ):
-                        return {
-                            "result": "error",
-                            "reason": "Overlapping patches detected",
-                        }
+                        return self.create_error_response(
+                            "Overlapping patches detected",
+                            suggestion="patch",
+                            hint="Please ensure your patches do not overlap",
+                        )
 
             # Apply patches
             for patch in sorted_patches:
@@ -335,16 +356,26 @@ class TextEditor:
                         "result": "error",
                         "reason": "End line must be greater than or equal to start line",
                         "file_hash": None,
-                        "content": current_content,
+                        "content": current_file_content,
                     }
 
                 # Handle unexpected empty hash for existing file
                 if (
                     os.path.exists(file_path)
-                    and current_content
-                    and expected_hash == ""
+                    and current_file_content
+                    and expected_file_hash == ""
                 ):
-                    return {"result": "error", "reason": "Unexpected error"}
+                    return {
+                        "result": "error",
+                        "reason": "File hash validation required: Empty hash provided for existing file",
+                        "details": {
+                            "file_path": file_path,
+                            "current_file_hash": self.calculate_hash(
+                                current_file_content
+                            ),
+                            "expected_file_hash": expected_file_hash,
+                        },
+                    }
 
                 # Calculate line ranges for zero-based indexing
                 start_zero = start - 1
@@ -358,11 +389,10 @@ class TextEditor:
                     expected_range_hash = patch.range_hash
 
                 # Determine operation type and validate hash requirements
-                if not os.path.exists(file_path) or not current_content:
+                if not os.path.exists(file_path) or not current_file_content:
                     # New file or empty file - treat as insertion
                     is_insertion = True
                 elif start_zero >= len(lines):
-                    # Append mode - start exceeds total lines
                     is_insertion = True
                 else:
                     # For modification mode, check the range_hash
@@ -384,6 +414,8 @@ class TextEditor:
                             return {
                                 "result": "error",
                                 "reason": "Content range hash mismatch - Please use get_text_file_contents tool with the same start and end to get current content and hashes, then retry with the updated hashes.",
+                                "suggestion": "get",
+                                "hint": "Please run get_text_file_contents first to get current content and hashes",
                             }
 
                 # Prepare new content
@@ -396,24 +428,24 @@ class TextEditor:
                 if not contents.strip():
                     return {
                         "result": "ok",
-                        "file_hash": current_hash,  # Return current hash since no changes made
+                        "file_hash": current_file_hash,  # Return current hash since no changes made
                         "hint": "For content deletion, please consider using delete_text_file_contents instead of patch with empty content",
                         "suggestion": "delete",
                     }
 
                 # Set suggestions for alternative tools
-                suggestion = None
-                hint = None
-                if not os.path.exists(file_path) or not current_content:
-                    suggestion = "append"
-                    hint = "For new or empty files, please consider using append_text_file_contents instead"
+                suggestion_text: Optional[str] = None
+                hint_text: Optional[str] = None
+                if not os.path.exists(file_path) or not current_file_content:
+                    suggestion_text = "append"
+                    hint_text = "For new or empty files, please consider using append_text_file_contents instead"
                 elif is_insertion:
                     if start_zero >= len(lines):
-                        suggestion = "append"
-                        hint = "For adding content at the end of file, please consider using append_text_file_contents instead"
+                        suggestion_text = "append"
+                        hint_text = "For adding content at the end of file, please consider using append_text_file_contents instead"
                     else:
-                        suggestion = "insert"
-                        hint = "For inserting content within file, please consider using insert_text_file_contents instead"
+                        suggestion_text = "insert"
+                        hint_text = "For inserting content within file, please consider using insert_text_file_contents instead"
 
                 # Prepare the content
                 new_content = contents if contents.endswith("\n") else contents + "\n"
@@ -439,24 +471,32 @@ class TextEditor:
                 "result": "ok",
                 "file_hash": new_hash,
                 "reason": None,
-                "suggestion": suggestion,
-                "hint": hint,
+                "suggestion": suggestion_text,
+                "hint": hint_text,
             }
 
         except FileNotFoundError:
-            return {"result": "error", "reason": f"File not found: {file_path}"}
+            return self.create_error_response(
+                f"File not found: {file_path}",
+                suggestion="append",
+                hint="For new files, please use append_text_file_contents",
+            )
         except (IOError, UnicodeError, PermissionError) as e:
-            return {"result": "error", "reason": f"Error editing file: {str(e)}"}
+            return self.create_error_response(
+                f"Error editing file: {str(e)}",
+                suggestion="patch",
+                hint="Please check file permissions and try again",
+            )
         except Exception as e:
             import traceback
 
             logger.error(f"Error: {str(e)}")
             logger.error(f"Traceback:\n{traceback.format_exc()}")
-            return {
-                "result": "error",
-                "reason": "Unexpected error occurred",
-                "file_hash": None,
-            }
+            return self.create_error_response(
+                "Unexpected error occurred",
+                suggestion="patch",
+                hint="Please try again or report the issue if it persists",
+            )
 
     async def insert_text_file_contents(
         self,

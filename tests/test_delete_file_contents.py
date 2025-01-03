@@ -1,5 +1,7 @@
 """Tests for delete_text_file_contents functionality."""
 
+import json
+
 import pytest
 
 from mcp_text_editor.models import DeleteTextFileContentsRequest, FileRange
@@ -277,13 +279,15 @@ async def test_delete_text_file_contents_handler_runtime_error(tmp_path):
     from mcp_text_editor.handlers.delete_text_file_contents import (
         DeleteTextFileContentsHandler,
     )
+    from mcp_text_editor.service import TextEditorService
     from mcp_text_editor.text_editor import TextEditor
 
-    class MockEditor(TextEditor):
-        async def edit_file_contents(self, *args, **kwargs):
-            raise RuntimeError("Mock error during edit")
+    class MockService(TextEditorService):
+        def delete_text_file_contents(self, request):
+            raise RuntimeError("Mock error during delete")
 
-    editor = MockEditor()
+    editor = TextEditor()
+    editor.service = MockService()
     handler = DeleteTextFileContentsHandler(editor)
 
     test_file = tmp_path / "error_test.txt"
@@ -298,4 +302,44 @@ async def test_delete_text_file_contents_handler_runtime_error(tmp_path):
         }
         await handler.run_tool(arguments)
 
-    assert "Error processing request: Mock error during edit" in str(exc_info.value)
+    assert "Error processing request: Mock error during delete" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_delete_text_file_contents_handler_success(tmp_path):
+    """Test successful execution of DeleteTextFileContentsHandler including JSON serialization."""
+    from mcp_text_editor.handlers.delete_text_file_contents import (
+        DeleteTextFileContentsHandler,
+    )
+    from mcp_text_editor.models import EditResult
+    from mcp_text_editor.service import TextEditorService
+    from mcp_text_editor.text_editor import TextEditor
+
+    class MockService(TextEditorService):
+        def delete_text_file_contents(self, request):
+            return {
+                request.file_path: EditResult(result="ok", hash="new_hash", reason=None)
+            }
+
+    editor = TextEditor()
+    editor.service = MockService()
+    handler = DeleteTextFileContentsHandler(editor)
+
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("test content")
+
+    arguments = {
+        "file_path": str(test_file),
+        "file_hash": "some_hash",
+        "ranges": [{"start": 1, "end": 1, "range_hash": "hash1"}],
+    }
+
+    result = await handler.run_tool(arguments)
+    assert len(result) == 1
+    assert result[0].type == "text"
+
+    # Check if response is JSON serializable
+    response = json.loads(result[0].text)
+    assert str(test_file) in response
+    assert response[str(test_file)]["result"] == "ok"
+    assert response[str(test_file)]["hash"] == "new_hash"

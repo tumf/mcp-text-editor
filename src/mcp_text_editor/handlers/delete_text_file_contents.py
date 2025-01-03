@@ -8,6 +8,7 @@ from typing import Any, Dict, Sequence
 
 from mcp.types import TextContent, Tool
 
+from ..models import DeleteTextFileContentsRequest, FileRange
 from .base import BaseHandler
 
 logger = logging.getLogger("mcp-text-editor")
@@ -88,26 +89,33 @@ class DeleteTextFileContentsHandler(BaseHandler):
 
             encoding = arguments.get("encoding", "utf-8")
 
-            # Create patches for deletion (replacing content with empty string)
-            patches = [
-                {
-                    "start": r["start"],
-                    "end": r["end"],
-                    "contents": "",
-                    "range_hash": r["range_hash"],
-                }
+            # Create file ranges for deletion
+            ranges = [
+                FileRange(
+                    start=r["start"], end=r.get("end"), range_hash=r["range_hash"]
+                )
                 for r in arguments["ranges"]
             ]
 
-            # Use the existing edit_file_contents method
-            result = await self.editor.edit_file_contents(
-                file_path,
-                expected_hash=arguments["file_hash"],
-                patches=patches,
+            # Create delete request
+            request = DeleteTextFileContentsRequest(
+                file_path=file_path,
+                file_hash=arguments["file_hash"],
+                ranges=ranges,
                 encoding=encoding,
             )
 
-            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+            # Execute deletion using the service
+            result_dict = self.editor.service.delete_text_file_contents(request)
+
+            # Convert EditResults to dictionaries
+            serializable_result = {}
+            for file_path, edit_result in result_dict.items():
+                serializable_result[file_path] = edit_result.to_dict()
+
+            return [
+                TextContent(type="text", text=json.dumps(serializable_result, indent=2))
+            ]
 
         except Exception as e:
             logger.error(f"Error processing request: {str(e)}")
