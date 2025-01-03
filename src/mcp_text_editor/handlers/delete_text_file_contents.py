@@ -18,7 +18,7 @@ class DeleteTextFileContentsHandler(BaseHandler):
     """Handler for deleting content from a text file."""
 
     name = "delete_text_file_contents"
-    description = "Delete specified content ranges from a text file. The file must exist. File paths must be absolute. You need to provide the file_hash comes from get_text_file_contents."
+    description = "Delete specified content ranges from a text file. The file must exist. File paths must be absolute. You need to provide the file_hash comes from get_text_file_contents."  # noqa: E501
 
     def get_tool_description(self) -> Tool:
         """Get the tool description."""
@@ -34,7 +34,7 @@ class DeleteTextFileContentsHandler(BaseHandler):
                     },
                     "file_hash": {
                         "type": "string",
-                        "description": "Hash of the file contents for concurrency control. it should be matched with the file_hash when get_text_file_contents is called.",
+                        "description": "Hash of the file contents for concurrency control. it should be matched with the file_hash when get_text_file_contents is called.",  # noqa: E501
                     },
                     "ranges": {
                         "type": "array",
@@ -52,7 +52,7 @@ class DeleteTextFileContentsHandler(BaseHandler):
                                 },
                                 "range_hash": {
                                     "type": "string",
-                                    "description": "Hash of the content being deleted. it should be matched with the range_hash when get_text_file_contents is called with the same range.",
+                                    "description": "Hash of the content being deleted. it should be matched with the range_hash when get_text_file_contents is called with the same range.",  # noqa: E501
                                 },
                             },
                             "required": ["start", "range_hash"],

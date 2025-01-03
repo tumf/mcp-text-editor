@@ -73,14 +73,19 @@ class TextEditor:
             file_path (str | os.PathLike): Path to validate
 
         Raises:
-            ValueError: If path is not allowed or contains dangerous patterns
+            ValidationError: If path is invalid or contains dangerous patterns
+            FileOperationError: If path cannot be accessed
         """
         # Convert path to string for checking
         path_str = str(file_path)
 
         # Check for dangerous patterns
         if ".." in path_str:
-            raise ValueError("Path traversal not allowed")
+            raise ValidationError(
+                "Path traversal not allowed",
+                code=ErrorCode.INVALID_REQUEST,
+                details={"file_path": path_str},
+            )
 
     @staticmethod
     def calculate_hash(content: str) -> str:
@@ -108,8 +113,8 @@ class TextEditor:
             Tuple[List[str], str, int]: Lines, content, and total line count
 
         Raises:
-            FileNotFoundError: If file not found
-            UnicodeDecodeError: If file cannot be decoded with specified encoding
+            FileOperationError: If file cannot be read or accessed
+            ValidationError: If file path is invalid
         """
         self._validate_file_path(file_path)
         try:
@@ -117,107 +122,399 @@ class TextEditor:
                 lines = f.readlines()
             file_content = "".join(lines)
             return lines, file_content, len(lines)
-        except FileNotFoundError as err:
-            raise FileNotFoundError(f"File not found: {file_path}") from err
+        except FileNotFoundError:
+            raise FileOperationError(
+                "File not found",
+                code=ErrorCode.FILE_NOT_FOUND,
+                details={"file_path": file_path},
+            )
         except UnicodeDecodeError as err:
-            raise UnicodeDecodeError(
-                encoding,
-                err.object,
-                err.start,
-                err.end,
-                f"Failed to decode file '{file_path}' with {encoding} encoding",
-            ) from err
+            raise FileOperationError(
+                "Failed to decode file content",
+                code=ErrorCode.FILE_ACCESS_DENIED,
+                details={
+                    "file_path": file_path,
+                    "encoding": encoding,
+                    "error": str(err),
+                },
+            )
+        except OSError as err:
+            raise FileOperationError(
+                "Failed to read file",
+                code=ErrorCode.FILE_ACCESS_DENIED,
+                details={
+                    "file_path": file_path,
+                    "error": str(err),
+                },
+            )
 
     async def read_multiple_ranges(
         self, ranges: List[Dict[str, Any]], encoding: str = "utf-8"
     ) -> Dict[str, Dict[str, Any]]:
-        result: Dict[str, Dict[str, Any]] = {}
+        """Read multiple ranges from files.
 
-        for file_range_dict in ranges:
-            file_range = FileRanges.model_validate(file_range_dict)
-            file_path = file_range.file_path
-            lines, file_content, total_lines = await self._read_file(
-                file_path, encoding=encoding
-            )
-            file_hash = self.calculate_hash(file_content)
-            result[file_path] = {"ranges": [], "file_hash": file_hash}
+        Args:
+            ranges: List of file range specifications
+            encoding: File encoding (default: utf-8)
 
-            for range_spec in file_range.ranges:
-                start = max(1, range_spec.start) - 1
-                end_value = range_spec.end
-                end = (
-                    min(total_lines, end_value)
-                    if end_value is not None
-                    else total_lines
-                )
+        Returns:
+            Dict containing file contents and metadata
 
-                if start >= total_lines:
-                    empty_content = ""
-                    result[file_path]["ranges"].append(
-                        {
-                            "content": empty_content,
-                            "start": start + 1,
-                            "end": start + 1,
-                            "range_hash": self.calculate_hash(empty_content),
-                            "total_lines": total_lines,
-                            "content_size": 0,
-                        }
+        Raises:
+            ValidationError: If range specifications are invalid
+            FileOperationError: If file operations fail
+            ContentOperationError: If content operations fail
+        """
+        try:
+            result: Dict[str, Dict[str, Any]] = {}
+
+            # First validate all ranges
+            for file_range_dict in ranges:
+                try:
+                    file_range = FileRanges.model_validate(file_range_dict)
+                except Exception as e:
+                    raise ValidationError(
+                        "Invalid range specification",
+                        code=ErrorCode.INVALID_SCHEMA,
+                        details={
+                            "error": str(e),
+                            "range": file_range_dict,
+                        },
                     )
-                    continue
 
-                selected_lines = lines[start:end]
-                content = "".join(selected_lines)
-                range_hash = self.calculate_hash(content)
+                # Validate line ranges
+                for range_spec in file_range.ranges:
+                    if range_spec.start < 1:
+                        raise ValidationError(
+                            "Invalid line number",
+                            code=ErrorCode.INVALID_LINE_RANGE,
+                            details={
+                                "start": range_spec.start,
+                                "message": "Line numbers must be positive integers",
+                            },
+                        )
+                    if range_spec.end is not None and range_spec.end < range_spec.start:
+                        raise ValidationError(
+                            "Invalid line range",
+                            code=ErrorCode.INVALID_LINE_RANGE,
+                            details={
+                                "start": range_spec.start,
+                                "end": range_spec.end,
+                                "message": "End line must be greater than or equal to start line",
+                            },
+    def _validate_patches(
+        self,
+        patches: List[Dict[str, Any]],
+        total_lines: Optional[int] = None
+    ) -> List[EditPatch]:
+        """Validate and convert patches to EditPatch objects.
 
-                result[file_path]["ranges"].append(
-                    {
-                        "content": content,
-                        "start": start + 1,
-                        "end": end,
-                        "range_hash": range_hash,
-                        "total_lines": total_lines,
-                        "content_size": len(content),
-                    }
-                )
+        Args:
+            patches: List of patch specifications to validate
+            total_lines: Total number of lines in the file (optional, for range validation)
 
-        return result
+        Returns:
+            List of validated EditPatch objects, sorted from bottom to top
 
-    async def read_file_contents(
+        Raises:
+            ValidationError: If patches are invalid, overlapping, or have invalid line numbers
+        """
+        try:
+            # Convert to EditPatch objects
+            try:
+                patch_objects = [EditPatch.model_validate(p) for p in patches]
+            except Exception as e:
+    async def _check_file_hash(
         self,
         file_path: str,
-        start: int = 1,
-        end: Optional[int] = None,
+        expected_hash: str,
         encoding: str = "utf-8",
-    ) -> Tuple[str, int, int, str, int, int]:
-        lines, file_content, total_lines = await self._read_file(
-            file_path, encoding=encoding
+    ) -> tuple[List[str], str, str]:
+        """Check file existence and verify hash.
+
+        Args:
+            file_path: Path to the file
+            expected_hash: Expected hash of the file
+            encoding: File encoding (default: utf-8)
+
+        Returns:
+            tuple containing:
+                - List of lines from the file
+                - File content as a string
+                - Content hash
+
+        Raises:
+            FileOperationError: If file cannot be accessed, read, or hash mismatch
+            ValidationError: If file path is invalid
+        """
+        self._validate_file_path(file_path)
+
+        # Handle non-existent file
+        if not os.path.exists(file_path):
+            if expected_hash not in ["", None]:
+                raise FileOperationError(
+                    "File not found and non-empty hash provided",
+                    code=ErrorCode.FILE_NOT_FOUND,
+                    details={
+                        "file_path": file_path,
+                        "expected_hash": expected_hash,
+                    },
+                )
+
+            # Try to create parent directories if needed
+            parent_dir = os.path.dirname(file_path)
+            if parent_dir:
+                try:
+                    os.makedirs(parent_dir, exist_ok=True)
+                except OSError as e:
+                    raise FileOperationError(
+                        "Failed to create directory",
+                        code=ErrorCode.FILE_ACCESS_DENIED,
+                        details={
+                            "file_path": parent_dir,
+                            "error": str(e),
+                        },
+                    )
+
+            return [], "", ""
+
+        try:
+            # Read and validate existing file
+            lines: List[str]
+            content: str
+            lines, content, _ = await self._read_file(file_path, encoding)
+
+            if not content:
+                return [], "", ""
+
+            current_hash = self.calculate_hash(content)
+
+            if expected_hash == "":
+                raise FileOperationError(
+                    "Cannot treat existing file as new",
+                    code=ErrorCode.INVALID_REQUEST,
+                    details={
+                        "file_path": file_path,
+                        "current_hash": current_hash,
+                    },
+                )
+    async def _apply_patches(
+        self,
+        lines: List[str],
+        patches: List[EditPatch],
+        encoding: str = "utf-8",
+    ) -> tuple[List[str], str, str]:
+        """Apply patches to file content.
+
+        The patches should be pre-validated and sorted using _validate_patches.
+
+        Args:
+            lines: Current file content as list of lines
+            patches: List of validated and sorted EditPatch objects
+            encoding: File encoding for content handling
+
+        Returns:
+            tuple containing:
+                - Updated list of lines
+                - Final content as string
+                - New content hash
+
+        Raises:
+            ContentOperationError: If patch application fails or content validation errors occur
+        """
+        current_lines = lines.copy()  # Work on a copy to avoid modifying original
+
+        try:
+            # Apply each patch (already sorted from bottom to top)
+            for patch in patches:
+                start_idx = patch.start - 1  # Convert to 0-based indexing
+                end_idx = patch.end - 1 if patch.end is not None else len(current_lines) - 1
+
+                # Validate content range if hash is provided
+                if patch.range_hash and current_lines:  # Skip check for empty files
+                    target_content = "".join(current_lines[start_idx:end_idx + 1])
+                    actual_hash = self.calculate_hash(target_content)
+                    if actual_hash != patch.range_hash:
+                        raise ContentOperationError(
+                            "Content range hash mismatch",
+                            code=ErrorCode.CONTENT_HASH_MISMATCH,
+                            details={
+                                "start": patch.start,
+                                "end": patch.end,
+                                "expected_hash": patch.range_hash,
+                                "actual_hash": actual_hash,
+                            },
+                        )
+
+                # Add newline to patch content if missing
+                new_content = patch.contents
+                if not new_content.endswith("\n"):
+                    new_content += "\n"
+
+                # Apply the patch
+                new_lines = new_content.splitlines(keepends=True)
+                if patch.range_hash:  # Replace mode
+                    current_lines[start_idx:end_idx + 1] = new_lines
+                else:  # Insert mode
+                    current_lines[start_idx:start_idx] = new_lines
+
+            # Join lines and calculate new hash
+            final_content = "".join(current_lines)
+            new_hash = self.calculate_hash(final_content)
+
+            return current_lines, final_content, new_hash
+
+        except IndexError as e:
+            raise ContentOperationError(
+                "Invalid line range in patch",
+                code=ErrorCode.INVALID_LINE_RANGE,
+                details={"error": str(e)},
+            )
+        except Exception as e:
+            raise ContentOperationError(
+                "Failed to apply patches",
+                code=ErrorCode.INTERNAL_ERROR,
+                details={"error": str(e)},
+            )
+        # Check for overlapping patches
+        for i in range(len(sorted_patches)):
+            patch1 = sorted_patches[i]
+            if patch1.start < 1:
+                raise ValidationError(
+                    "Invalid line number",
+                    code=ErrorCode.INVALID_LINE_RANGE,
+                    details={
+                        "patch_index": i,
+                        "start": patch1.start,
+                        "message": "Line numbers must be positive integers",
+                    },
+                )
+            if patch1.end is not None and patch1.end < patch1.start:
+                raise ValidationError(
+                    "Invalid line range",
+                    code=ErrorCode.INVALID_LINE_RANGE,
+                    details={
+                        "patch_index": i,
+                        "start": patch1.start,
+                        "end": patch1.end,
+                        "message": "End line must be greater than or equal to start line",
+                    },
+                )
+
+            for j in range(i + 1, len(sorted_patches)):
+                patch2 = sorted_patches[j]
+                if self._patches_overlap(patch1, patch2):
+                    raise ValidationError(
+                        "Overlapping patches detected",
+                        code=ErrorCode.INVALID_REQUEST,
+                        details={
+                            "patch1": {"start": patch1.start, "end": patch1.end},
+                            "patch2": {"start": patch2.start, "end": patch2.end},
+                        },
+                    )
+
+        return sorted_patches
+
+    def _patches_overlap(
+        self, patch1: EditPatch, patch2: EditPatch
+    ) -> bool:
+        """Check if two patches overlap.
+
+        Args:
+            patch1: First patch
+            patch2: Second patch
+
+        Returns:
+            True if patches overlap, False otherwise
+        """
+        end1 = patch1.end or patch1.start
+        end2 = patch2.end or patch2.start
+        return (patch1.start <= end2 and end1 >= patch2.start) or (
+            patch2.start <= end1 and end2 >= patch1.start
         )
 
-        if end is not None and end < start:
-            raise ValueError("End line must be greater than or equal to start line")
+    async def _check_file_hash(
+        self,
+        file_path: str,
+        expected_hash: str,
+        encoding: str = "utf-8",
+    ) -> tuple[str, str, list[str]]:
+        """Check file existence and verify hash.
 
-        start = max(1, start) - 1
-        end = total_lines if end is None else min(end, total_lines)
+        Args:
+            file_path: Path to the file
+            expected_hash: Expected hash of the file
+            encoding: File encoding
 
-        if start >= total_lines:
-            empty_content = ""
-            empty_hash = self.calculate_hash(empty_content)
-            return empty_content, start, start, empty_hash, total_lines, 0
-        if end < start:
-            raise ValueError("End line must be greater than or equal to start line")
+        Returns:
+            Tuple of (current_content, current_hash, lines)
 
-        selected_lines = lines[start:end]
-        content = "".join(selected_lines)
-        content_hash = self.calculate_hash(content)
-        content_size = len(content.encode(encoding))
+        Raises:
+            FileOperationError: If file cannot be accessed or hash mismatch
+        """
+        if not os.path.exists(file_path):
+            if expected_hash not in ["", None]:
+                raise FileOperationError(
+                    "File not found and non-empty hash provided",
+                    code=ErrorCode.FILE_NOT_FOUND,
+                    details={"file_path": file_path},
+                )
+
+            # Create parent directories if needed
+            parent_dir = os.path.dirname(file_path)
+            if parent_dir:
+                try:
+                    os.makedirs(parent_dir, exist_ok=True)
+                except OSError as e:
+                    raise FileOperationError(
+                        "Failed to create directory",
+                        code=ErrorCode.FILE_ACCESS_DENIED,
+                        details={
+                            "file_path": parent_dir,
+                            "error": str(e),
+                        },
+                    )
+
+            return "", "", []
+
+        try:
+            current_content, _, _, current_hash, _, _ = await self.read_file_contents(
+                file_path, encoding=encoding
+            )
+        except FileOperationError:
+            raise
+        except Exception as e:
+            raise FileOperationError(
+                "Failed to read file",
+                code=ErrorCode.FILE_ACCESS_DENIED,
+                details={"file_path": file_path, "error": str(e)},
+            )
+
+        if not current_content:
+            return "", "", []
+
+        if expected_hash == "":
+            raise FileOperationError(
+                "Cannot treat existing file as new",
+                code=ErrorCode.INVALID_REQUEST,
+                details={"file_path": file_path},
+            )
+
+        if current_hash != expected_hash:
+            raise FileOperationError(
+                "File hash mismatch",
+                code=ErrorCode.FILE_HASH_MISMATCH,
+                details={
+                    "file_path": file_path,
+                    "expected": expected_hash,
+                    "actual": current_hash,
+                },
+            )
 
         return (
-            content,
-            start + 1,
-            end,
-            content_hash,
-            total_lines,
-            content_size,
+            current_content,
+            current_hash,
+            current_content.splitlines(keepends=True),
         )
 
     async def edit_file_contents(
@@ -227,80 +524,97 @@ class TextEditor:
         patches: List[Dict[str, Any]],
         encoding: str = "utf-8",
     ) -> Dict[str, Any]:
-        """
-        Edit file contents with hash-based conflict detection and multiple patches.
+        """Edit file contents with hash-based conflict detection and multiple patches.
 
         Args:
-            file_path (str): Path to the file to edit
-            expected_hash (str): Expected hash of the file before editing
-            patches (List[Dict[str, Any]]): List of patches to apply, each containing:
+            file_path: Path to the file to edit
+            expected_hash: Expected hash of the file before editing
+            patches: List of patches to apply, each containing:
                 - start (int): Starting line number (1-based)
                 - end (Optional[int]): Ending line number (inclusive)
-                - contents (str): New content to insert (if empty string, consider using delete_text_file_contents instead)
+                - contents (str): New content to insert
                 - range_hash (str): Expected hash of the content being replaced
+            encoding: File encoding (default: utf-8)
 
         Returns:
-            Dict[str, Any]: Results of the operation containing:
+            Dict containing:
                 - result: "ok" or "error"
-                - hash: New file hash if successful, None if error
+                - file_hash: New file hash if successful
                 - reason: Error message if result is "error"
-                    "file_hash": None,
+                - suggestion: Optional suggested alternative tool
+                - hint: Optional hint message for users
+        """
+        try:
+            # Step 1: Check file and validate hash
+            lines, current_content, current_hash = await self._check_file_hash(
+                file_path, expected_hash, encoding
+            )
+
+            total_lines = len(lines) if lines else 0
+
+            # Step 2: Validate patches
+            validated_patches = self._validate_patches(patches, total_lines)
+
+            # Early return for empty content deletion
+            if any(not patch.contents.strip() for patch in validated_patches):
+                return {
+                    "result": "ok",
+                    "file_hash": current_hash,
+                    "hint": "For content deletion, please consider using delete_text_file_contents",
+                    "suggestion": "delete",
                 }
 
-            # Read current file content and verify hash
-        """
-        self._validate_file_path(file_path)
-        try:
-            if not os.path.exists(file_path):
-                if expected_hash not in ["", None]:  # Allow null hash
-                    return self.create_error_response(
-                        "File not found and non-empty hash provided",
-                        suggestion="append",
-                        hint="For new files, please consider using append_text_file_contents",
-                    )
-                # Create parent directories if they don't exist
-                parent_dir = os.path.dirname(file_path)
-                if parent_dir:
-                    try:
-                        os.makedirs(parent_dir, exist_ok=True)
-                    except OSError as e:
-                        return self.create_error_response(
-                            f"Failed to create directory: {str(e)}",
-                            suggestion="patch",
-                            hint="Please check file permissions and try again",
-                        )
-                # Initialize empty state for new file
-                current_content = ""
-                current_hash = ""
-                lines: List[str] = []
-                encoding = "utf-8"
-            else:
-                # Read current file content and verify hash
-                (
-                    current_content,
-                    _,
-                    _,
-                    current_hash,
-                    total_lines,
-                    _,
-                ) = await self.read_file_contents(file_path, encoding=encoding)
+            # Step 3: Apply patches
+            updated_lines, final_content, new_hash = await self._apply_patches(
+                lines, validated_patches, encoding
+            )
 
-                # Treat empty file as new file
-                if not current_content:
-                    current_content = ""
-                    current_hash = ""
-                    lines = []
-                elif current_content and expected_hash == "":
-                    return self.create_error_response(
-                        "Unexpected error - Cannot treat existing file as new",
-                    )
-                elif current_hash != expected_hash:
-                    suggestion = "patch"
-                    hint = "Please use get_text_file_contents tool to get the current content and hash"
+            # Step 4: Write final content
+            try:
+                with open(file_path, "w", encoding=encoding) as f:
+                    f.write(final_content)
+            except IOError as e:
+                raise FileOperationError(
+                    "Failed to write file",
+                    code=ErrorCode.FILE_ACCESS_DENIED,
+                    details={"file_path": file_path, "error": str(e)},
+                )
 
-                    return self.create_error_response(
-                        "FileHash mismatch - Please use get_text_file_contents tool to get current content and hashes, then retry with the updated hashes.",
-                        suggestion=suggestion,
+            # Determine suggestion for alternative tools
+            suggestion = None
+            hint = None
+            if not os.path.exists(file_path) or not current_content:
+                suggestion = "append"
+                hint = "For new files, please consider using append_text_file_contents"
+            elif all(not p.range_hash for p in validated_patches):
+                if all(p.start >= total_lines for p in validated_patches):
+                    suggestion = "append"
+                    hint = "For adding content at the end of file, please consider using append_text_file_contents"
+                else:
+                    suggestion = "insert"
+                    hint = "For inserting content within file, please consider using insert_text_file_contents"
+
+            return {
+                "result": "ok",
+                "file_hash": new_hash,
+                "suggestion": suggestion,
+                "hint": hint,
+            }
+
+        except (ValidationError, FileOperationError, ContentOperationError) as e:
+            return self.create_error_response(
+                str(e),
+                file_hash=getattr(e, "details", {}).get("actual", None),
+                file_path=file_path,
+                suggestion="patch",
+                hint="Please check the error details and try again",
+            )
+        except Exception as e:
+            return self.create_error_response(
+                "Unexpected error occurred",
+                suggestion="patch",
+                hint="Please try again or report the issue if it persists",
+            )
                         hint=hint,
                     )
                 else:
