@@ -1,10 +1,10 @@
-"""Test insert_text_file_contents function."""
+"""Test insert_text_file functionality using TextEditor."""
 
 from pathlib import Path
 
 import pytest
 
-from mcp_text_editor import get_text_file_contents, insert_text_file_contents
+from mcp_text_editor.text_editor import TextEditor
 
 
 @pytest.mark.asyncio
@@ -14,20 +14,18 @@ async def test_insert_after_line(tmp_path: Path) -> None:
     test_file = tmp_path / "test.txt"
     test_file.write_text("line1\nline2\nline3\n")
 
-    # Get the current hash
-    result = await get_text_file_contents(
-        {"files": [{"file_path": str(test_file), "ranges": [{"start": 1}]}]}
+    # Initialize TextEditor
+    editor = TextEditor()
+
+    # Read file to get hash
+    result = await editor.read_multiple_ranges(
+        [{"file_path": str(test_file), "ranges": [{"start": 1}]}]
     )
     file_hash = result[str(test_file)]["file_hash"]
 
     # Insert text after line 2
-    result = await insert_text_file_contents(
-        {
-            "file_path": str(test_file),
-            "file_hash": file_hash,
-            "after": 2,
-            "contents": "new_line\n",
-        }
+    result = await editor.insert_text_file_contents(
+        file_path=str(test_file), file_hash=file_hash, after=2, contents="new_line\n"
     )
 
     assert result["result"] == "ok"
@@ -45,20 +43,18 @@ async def test_insert_before_line(tmp_path: Path) -> None:
     test_file = tmp_path / "test.txt"
     test_file.write_text("line1\nline2\nline3\n")
 
-    # Get the current hash
-    result = await get_text_file_contents(
-        {"files": [{"file_path": str(test_file), "ranges": [{"start": 1}]}]}
+    # Initialize TextEditor
+    editor = TextEditor()
+
+    # Read file to get hash
+    result = await editor.read_multiple_ranges(
+        [{"file_path": str(test_file), "ranges": [{"start": 1}]}]
     )
     file_hash = result[str(test_file)]["file_hash"]
 
     # Insert text before line 2
-    result = await insert_text_file_contents(
-        {
-            "file_path": str(test_file),
-            "file_hash": file_hash,
-            "before": 2,
-            "contents": "new_line\n",
-        }
+    result = await editor.insert_text_file_contents(
+        file_path=str(test_file), file_hash=file_hash, before=2, contents="new_line\n"
     )
 
     assert result["result"] == "ok"
@@ -76,20 +72,18 @@ async def test_insert_beyond_file_end(tmp_path: Path) -> None:
     test_file = tmp_path / "test.txt"
     test_file.write_text("line1\nline2\nline3\n")
 
-    # Get the current hash
-    result = await get_text_file_contents(
-        {"files": [{"file_path": str(test_file), "ranges": [{"start": 1}]}]}
+    # Initialize TextEditor
+    editor = TextEditor()
+
+    # Read file to get hash
+    result = await editor.read_multiple_ranges(
+        [{"file_path": str(test_file), "ranges": [{"start": 1}]}]
     )
     file_hash = result[str(test_file)]["file_hash"]
 
     # Try to insert text after line 10 (file has only 3 lines)
-    result = await insert_text_file_contents(
-        {
-            "file_path": str(test_file),
-            "file_hash": file_hash,
-            "after": 10,
-            "contents": "new_line\n",
-        }
+    result = await editor.insert_text_file_contents(
+        file_path=str(test_file), file_hash=file_hash, after=10, contents="new_line\n"
     )
 
     assert result["result"] == "error"
@@ -99,14 +93,15 @@ async def test_insert_beyond_file_end(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_file_not_found(tmp_path: Path) -> None:
     """Test inserting text into a non-existent file."""
+    # Initialize TextEditor
+    editor = TextEditor()
+
     # Try to insert text into a non-existent file
-    result = await insert_text_file_contents(
-        {
-            "file_path": str(tmp_path / "nonexistent.txt"),
-            "file_hash": "any_hash",
-            "after": 1,
-            "contents": "new_line\n",
-        }
+    result = await editor.insert_text_file_contents(
+        file_path=str(tmp_path / "nonexistent.txt"),
+        file_hash="any_hash",
+        after=1,
+        contents="new_line\n",
     )
 
     assert result["result"] == "error"
@@ -120,14 +115,15 @@ async def test_hash_mismatch(tmp_path: Path) -> None:
     test_file = tmp_path / "test.txt"
     test_file.write_text("line1\nline2\nline3\n")
 
+    # Initialize TextEditor
+    editor = TextEditor()
+
     # Try to insert text with incorrect hash
-    result = await insert_text_file_contents(
-        {
-            "file_path": str(test_file),
-            "file_hash": "incorrect_hash",
-            "after": 1,
-            "contents": "new_line\n",
-        }
+    result = await editor.insert_text_file_contents(
+        file_path=str(test_file),
+        file_hash="incorrect_hash",
+        after=1,
+        contents="new_line\n",
     )
 
     assert result["result"] == "error"

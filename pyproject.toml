@@ -10,7 +10,7 @@ dependencies = [
     "mcp>=1.1.2",
     "chardet>=5.2.0",
 ]
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 readme = "README.md"
 license = { text = "MIT" }
 
@@ -63,14 +63,14 @@ src = ["src"]
 
 [tool.black]
 line-length = 88
-target-version = ['py311']
+target-version = ['py313']
 
 [tool.isort]
 profile = "black"
 line_length = 88
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.13"
 ignore_missing_imports = true
 namespace_packages = true
 explicit_package_bases = true
