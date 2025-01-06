@@ -4,6 +4,9 @@
 test:
 	pytest
 
+install:
+	uv sync --all-extras 
+
 coverage:
 	pytest --cov=mcp_text_editor --cov-report=term-missing
 
@@ -24,4 +27,4 @@ typecheck:
 # Run all checks required before pushing
 check:  lint typecheck
 fix: format
-all: format check coverage
+all: format typecheck coverage
