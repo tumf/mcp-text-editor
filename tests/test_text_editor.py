@@ -352,12 +352,12 @@ async def test_read_multiple_ranges_line_exceed(editor, tmp_path):
     # Check the exceeded range
     assert len(result[str(test_file)]["ranges"]) == 2
     # First range (exceeded)
-    assert result[str(test_file)]["ranges"][0]["contents"] == ""
+    assert result[str(test_file)]["ranges"][0]["content"] == ""
     assert result[str(test_file)]["ranges"][0]["start"] == 4
     assert result[str(test_file)]["ranges"][0]["end"] == 4
     assert result[str(test_file)]["ranges"][0]["content_size"] == 0
     # Second range (normal)
-    assert result[str(test_file)]["ranges"][1]["contents"] == "Line 1\nLine 2\n"
+    assert result[str(test_file)]["ranges"][1]["content"] == "Line 1\nLine 2\n"
 
 
 @pytest.mark.asyncio
