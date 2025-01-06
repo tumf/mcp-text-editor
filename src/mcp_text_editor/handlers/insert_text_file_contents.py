@@ -17,7 +17,7 @@ class InsertTextFileContentsHandler(BaseHandler):
     """Handler for inserting content before or after a specific line in a text file."""
 
     name = "insert_text_file_contents"
-    description = "Insert content before or after a specific line in a text file. Uses hash-based validation for concurrency control. You need to provide the file_hash comes from get_text_file_contents."
+    description = "Insert content before or after a specific line in a text file. Uses hash-based validation for concurrency control. You need to provide the file_hash comes from get_text_file_contents."  # noqa: E501
 
     def get_tool_description(self) -> Tool:
         """Get the tool description."""
@@ -33,7 +33,7 @@ class InsertTextFileContentsHandler(BaseHandler):
                     },
                     "file_hash": {
                         "type": "string",
-                        "description": "Hash of the file contents for concurrency control. it should be matched with the file_hash when get_text_file_contents is called.",
+                        "description": "Hash of the file contents for concurrency control. it should be matched with the file_hash when get_text_file_contents is called.",  # noqa: E501
                     },
                     "contents": {
                         "type": "string",
