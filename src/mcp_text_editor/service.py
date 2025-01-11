@@ -3,7 +3,7 @@
 import hashlib
 from typing import Dict, List, Optional, Tuple
 
-from .models import (
+from mcp_text_editor.models import (
     DeleteTextFileContentsRequest,
     EditFileOperation,
     EditPatch,

@@ -5,8 +5,8 @@ import logging
 import os
 from typing import Any, Dict, List, Optional, Tuple
 
-from .models import DeleteTextFileContentsRequest, EditPatch, FileRanges
-from .service import TextEditorService
+from mcp_text_editor.models import DeleteTextFileContentsRequest, EditPatch, FileRanges
+from mcp_text_editor.service import TextEditorService
 
 logger = logging.getLogger(__name__)
 
