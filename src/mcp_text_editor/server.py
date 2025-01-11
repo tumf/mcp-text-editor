@@ -1,5 +1,6 @@
 """MCP Text Editor Server implementation."""
 
+import asyncio
 import logging
 import traceback
 from collections.abc import Sequence
@@ -8,7 +9,7 @@ from typing import Any, List
 from mcp.server import Server
 from mcp.types import TextContent, Tool
 
-from .handlers import (
+from mcp_text_editor.handlers import (
     AppendTextFileContentsHandler,
     CreateTextFileHandler,
     DeleteTextFileContentsHandler,
@@ -16,7 +17,7 @@ from .handlers import (
     InsertTextFileContentsHandler,
     PatchTextFileContentsHandler,
 )
-from .version import __version__
+from mcp_text_editor.version import __version__
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -88,3 +89,7 @@ async def main() -> None:
     except Exception as e:
         logger.error(f"Server error: {str(e)}")
         raise
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

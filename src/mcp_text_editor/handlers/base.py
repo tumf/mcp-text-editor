@@ -4,7 +4,7 @@ from typing import Any, Dict, Sequence
 
 from mcp.types import TextContent, Tool
 
-from ..text_editor import TextEditor
+from mcp_text_editor.text_editor import TextEditor
 
 
 class BaseHandler:
