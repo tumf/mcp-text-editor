@@ -2,10 +2,9 @@
 
 [![codecov](https://codecov.io/gh/tumf/mcp-text-editor/branch/main/graph/badge.svg?token=52D51U0ZUR)](https://codecov.io/gh/tumf/mcp-text-editor)
 [![smithery badge](https://smithery.ai/badge/mcp-text-editor)](https://smithery.ai/server/mcp-text-editor)
+[![Glama MCP Server](https://glama.ai/mcp/servers/k44dnvso10/badge)](https://glama.ai/mcp/servers/k44dnvso10)
 
 A Model Context Protocol (MCP) server that provides line-oriented text file editing capabilities through a standardized API. Optimized for LLM tools with efficient partial file access to minimize token usage.
-
-<a href="https://glama.ai/mcp/servers/k44dnvso10"><img width="380" height="200" src="https://glama.ai/mcp/servers/k44dnvso10/badge" alt="mcp-text-editor MCP server" /></a>
 
 ## Quick Start for Claude.app Users
 
@@ -18,13 +17,12 @@ code ~/Library/Application\ Support/Claude/claude_desktop_config.json
 ```json
 {
   "mcpServers": {
-
     "text-editor": {
       "command": "uvx",
       "args": [
         "mcp-text-editor"
       ]
-    }, 
+    }
   }
 }
 ```
@@ -40,7 +38,8 @@ MCP Text Editor Server is designed to facilitate safe and efficient line-based t
 - Optimized for LLM tool integration
 - Safe concurrent editing with hash-based validation
 - Atomic multi-file operations
-- Robust error handling and recovery mechanisms
+- Robust error handling with custom error types
+- Comprehensive encoding support (utf-8, shift_jis, latin1, etc.)
 
 ## Features
 
@@ -83,7 +82,19 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 uv pip install -e ".[dev]"
 ```
 
+## Requirements
+
+- Python 3.13+
+- POSIX-compliant operating system (Linux, macOS, etc.) or Windows
+- File system permissions for read/write operations
+
 ## Installation
+
+### Run via uvx
+
+```bash
+uvx mcp-text-editor
+```
 
 ### Installing via Smithery
 
@@ -94,14 +105,26 @@ npx -y @smithery/cli install mcp-text-editor --client claude
 ```
 
 ### Manual Installation
+
+1. Install Python 3.13+
+
 ```bash
-pip install -e .
+pyenv install 3.13.0
+pyenv local 3.13.0
 ```
 
-For development:
+2. Install uv (recommended) or pip
 
 ```bash
-pip install -e ".[dev]"
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+3. Create virtual environment and install dependencies
+
+```bash
+uv venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+uv pip install -e ".[dev]"
 ```
 
 ## Usage
@@ -114,7 +137,7 @@ python -m mcp_text_editor
 
 ### MCP Tools
 
-The server provides two main tools:
+The server provides several tools for text file manipulation:
 
 #### get_text_file_contents
 
@@ -126,7 +149,8 @@ Get the contents of one or more text files with line range specification.
 {
   "file_path": "path/to/file.txt",
   "line_start": 1,
-  "line_end": 10
+  "line_end": 10,
+  "encoding": "utf-8"  // Optional, defaults to utf-8
 }
 ```
 
@@ -140,7 +164,8 @@ Get the contents of one or more text files with line range specification.
       "ranges": [
         {"start": 1, "end": 10},
         {"start": 20, "end": 30}
-      ]
+      ],
+      "encoding": "shift_jis"  // Optional, defaults to utf-8
     },
     {
       "file_path": "file2.txt",
@@ -178,16 +203,16 @@ Parameters:
   "file1.txt": [
     {
       "content": "Lines 1-10 content",
-      "start_line": 1,
-      "end_line": 10,
+      "start": 1,
+      "end": 10,
       "hash": "sha256-hash-1",
       "total_lines": 50,
       "content_size": 512
     },
     {
       "content": "Lines 20-30 content",
-      "start_line": 20,
-      "end_line": 30,
+      "start": 20,
+      "end": 30,
       "hash": "sha256-hash-2",
       "total_lines": 50,
       "content_size": 512
@@ -196,8 +221,8 @@ Parameters:
   "file2.txt": [
     {
       "content": "Lines 5-15 content",
-      "start_line": 5,
-      "end_line": 15,
+      "start": 5,
+      "end": 15,
       "hash": "sha256-hash-3",
       "total_lines": 30,
       "content_size": 256
@@ -206,9 +231,9 @@ Parameters:
 }
 ```
 
-#### edit_text_file_contents
+#### patch_text_file_contents
 
-Edit text file contents with conflict detection. Supports editing multiple files in a single operation.
+Apply patches to text files with robust error handling and conflict detection. Supports editing multiple files in a single operation.
 
 **Request Format:**
 
@@ -216,29 +241,21 @@ Edit text file contents with conflict detection. Supports editing multiple files
 {
   "files": [
     {
-      "path": "file1.txt",
+      "file_path": "file1.txt",
       "hash": "sha256-hash-from-get-contents",
+      "encoding": "utf-8",  // Optional, defaults to utf-8
       "patches": [
         {
-          "line_start": 5,
-          "line_end": 8,
+          "start": 5,
+          "end": 8,
+          "range_hash": "sha256-hash-of-content-being-replaced",
           "contents": "New content for lines 5-8\n"
         },
         {
-          "line_start": 15,
-          "line_end": 15,
-          "contents": "Single line replacement\n"
-        }
-      ]
-    },
-    {
-      "path": "file2.txt",
-      "hash": "sha256-hash-from-get-contents",
-      "patches": [
-        {
-          "line_start": 1,
-          "line_end": 3,
-          "contents": "Replace first three lines\n"
+          "start": 15,
+          "end": null,  // null means end of file
+          "range_hash": "sha256-hash-of-content-being-replaced",
+          "contents": "Content to append\n"
         }
       ]
     }
@@ -247,11 +264,11 @@ Edit text file contents with conflict detection. Supports editing multiple files
 ```
 
 Important Notes:
-1. Always get the current hash using get_text_file_contents before editing
+1. Always get the current hash and range_hash using get_text_file_contents before editing
 2. Patches are applied from bottom to top to handle line number shifts correctly
 3. Patches must not overlap within the same file
 4. Line numbers are 1-based
-5. If original content ends with newline, ensure patch content also ends with newline
+5. `end: null` can be used to append content to the end of file
 6. File encoding must match the encoding used in get_text_file_contents
 
 **Success Response:**
@@ -261,30 +278,31 @@ Important Notes:
   "file1.txt": {
     "result": "ok",
     "hash": "sha256-hash-of-new-contents"
-  },
-  "file2.txt": {
-    "result": "ok",
-    "hash": "sha256-hash-of-new-contents"
   }
 }
 ```
 
-**Error Response:**
+**Error Response with Hints:**
 
 ```json
 {
   "file1.txt": {
     "result": "error",
-    "reason": "File not found",
-    "hash": null
-  },
-  "file2.txt": {
+    "reason": "Content hash mismatch",
+    "suggestion": "get",  // Suggests using get_text_file_contents
+    "hint": "Please run get_text_file_contents first to get current content and hashes"
+  }
+}
+```
+
     "result": "error",
     "reason": "Content hash mismatch - file was modified",
     "hash": "current-hash",
     "content": "Current file content"
+
   }
 }
+
 ```
 
 ### Common Usage Pattern
@@ -360,17 +378,24 @@ The server handles various error cases:
    - Check file and directory permissions
    - Ensure the server process has necessary read/write access
 
-2. Hash Mismatch Errors
+2. Hash Mismatch and Range Hash Errors
    - The file was modified by another process
-   - Fetch latest content and retry the operation
+   - Content being replaced has changed
+   - Run get_text_file_contents to get fresh hashes
 
-3. Connection Issues
+3. Encoding Issues
+   - Verify file encoding matches the specified encoding
+   - Use utf-8 for new files
+   - Check for BOM markers in files
+
+4. Connection Issues
    - Verify the server is running and accessible
    - Check network configuration and firewall settings
 
-4. Performance Issues
+5. Performance Issues
    - Consider using smaller line ranges for large files
    - Monitor system resources (memory, disk space)
+   - Use appropriate encoding for file type
 
 ## Development
 
@@ -378,8 +403,8 @@ The server handles various error cases:
 
 1. Clone the repository
 2. Create and activate a Python virtual environment
-3. Install development dependencies: `pip install -e ".[dev]"`
-4. Run tests: `pytest`
+3. Install development dependencies: `uv pip install -e ".[dev]"`
+4. Run tests: `make all`
 
 ### Code Quality Tools
 
