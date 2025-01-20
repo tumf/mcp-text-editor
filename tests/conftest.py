@@ -6,7 +6,7 @@ from typing import AsyncGenerator, Generator
 
 import pytest
 import pytest_asyncio
-from mcp.server import Server
+from mcp.server.fastmcp import FastMCP
 
 from mcp_text_editor.server import app
 
@@ -58,7 +58,7 @@ class MockStream:
 
 
 @pytest_asyncio.fixture
-async def mock_server() -> AsyncGenerator[tuple[Server, MockStream], None]:
+async def mock_server() -> AsyncGenerator[tuple[FastMCP, MockStream], None]:
     """Create a mock server for testing."""
     mock_write_stream = MockStream()
     yield app, mock_write_stream
