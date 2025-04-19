@@ -27,6 +27,25 @@ code ~/Library/Application\ Support/Claude/claude_desktop_config.json
 }
 ```
 
+or with docker:
+```json
+{
+  "mcpServers": {
+    "text-editor": {
+      "command": "docker",
+      "args": [
+          "run",
+          "-i",
+          "--rm",
+          "--mount",
+          "type=bind,src=/some/path/src,dst=/some/path/dst",
+          "mcp/text-editor"
+      ]
+    }
+  }
+}
+```
+
 ## Overview
 
 MCP Text Editor Server is designed to facilitate safe and efficient line-based text file operations in a client-server architecture. It implements the Model Context Protocol, ensuring reliable file editing with robust conflict detection and resolution. The line-oriented approach makes it ideal for applications requiring synchronized file access, such as collaborative editing tools, automated text processing systems, or any scenario where multiple processes need to modify text files safely. The partial file access capability is particularly valuable for LLM-based tools, as it helps reduce token consumption by loading only the necessary portions of files.
@@ -113,6 +132,11 @@ pyenv install 3.13.0
 pyenv local 3.13.0
 ```
 
+### Docker Installation
+```
+docker build --network=host -t mcp/text-editor .
+```
+
 2. Install uv (recommended) or pip
 
 ```bash
@@ -133,6 +157,18 @@ Start the server:
 
 ```bash
 python -m mcp_text_editor
+```
+
+Start the server with docker:
+
+```bash
+docker run -i --rm --mount "type=bind,src=/some/path/src,dst=/some/path/dst" mcp/text-editor
+```
+
+with inspector:
+
+```bash
+npx @modelcontextprotocol/inspector docker run -i --rm --mount "type=bind,src=/some/path/src,dst=/some/path/dst" mcp/text-editor
 ```
 
 ### MCP Tools
