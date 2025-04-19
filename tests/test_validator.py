@@ -25,23 +25,27 @@ async def test_validator_command_runs_after_edit(temp_file):
         mock_run.return_value = mock_result
 
         editor = TextEditor(validator_command="test-validator")
-        
+
         with open(temp_file, "r") as f:
             content = f.read()
         file_hash = editor.calculate_hash(content)
         result = await editor.edit_file_contents(
             file_path=temp_file,
             expected_file_hash=file_hash,  # Use actual file hash
-            patches=[{"start": 1, "end": 1, "contents": "Updated content\n", "range_hash": editor.calculate_hash("Original content\n")}]
+            patches=[
+                {
+                    "start": 1,
+                    "end": 1,
+                    "contents": "Updated content\n",
+                    "range_hash": editor.calculate_hash("Original content\n"),
+                }
+            ],
         )
-        
+
         mock_run.assert_called_once_with(
-            ["test-validator", temp_file], 
-            capture_output=True, 
-            text=True, 
-            check=False
+            ["test-validator", temp_file], capture_output=True, text=True, check=False
         )
-        
+
         assert "validator_result" in result
         assert result["validator_result"]["exit_code"] == 0
         assert result["validator_result"]["stdout"] == "Validation passed"

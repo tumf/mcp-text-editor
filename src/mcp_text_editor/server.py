@@ -85,27 +85,29 @@ async def main() -> None:
     """Main entry point for the MCP text editor server."""
     import argparse
     import sys
-    
+
     parser = argparse.ArgumentParser(description="MCP Text Editor Server")
-    parser.add_argument("--validator", help="Validator command to run after file updates")
+    parser.add_argument(
+        "--validator", help="Validator command to run after file updates"
+    )
     args = parser.parse_args()
-    
+
     logger.info(f"Starting MCP text editor server v{__version__}")
-    
+
     # Initialize the global text editor instance with validator command
     text_editor_instance = TextEditor(validator_command=args.validator)
-    
+
     # Initialize the global handlers with the text editor instance
     global get_contents_handler, patch_file_handler, create_file_handler
     global append_file_handler, delete_contents_handler, insert_file_handler
-    
+
     get_contents_handler = GetTextFileContentsHandler(editor=text_editor_instance)
     patch_file_handler = PatchTextFileContentsHandler(editor=text_editor_instance)
     create_file_handler = CreateTextFileHandler(editor=text_editor_instance)
     append_file_handler = AppendTextFileContentsHandler(editor=text_editor_instance)
     delete_contents_handler = DeleteTextFileContentsHandler(editor=text_editor_instance)
     insert_file_handler = InsertTextFileContentsHandler(editor=text_editor_instance)
-    
+
     try:
         from mcp.server.stdio import stdio_server
 
