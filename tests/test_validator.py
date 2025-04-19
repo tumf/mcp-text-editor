@@ -1,6 +1,7 @@
 import os
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 from mcp_text_editor.text_editor import TextEditor
 
