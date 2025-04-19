@@ -3,7 +3,7 @@
 import asyncio
 
 from .server import main
-from .text_editor import TextEditor
+from .text_editor import TextEditor as TextEditor  # Re-export explicitly
 
 # Create a global text editor instance
 _text_editor = None
