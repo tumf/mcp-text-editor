@@ -6,7 +6,7 @@ from .server import main
 from .text_editor import TextEditor
 
 # Create a global text editor instance
-_text_editor = TextEditor()
+_text_editor = None
 
 
 def run() -> None:

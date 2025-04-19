@@ -14,10 +14,11 @@ logger = logging.getLogger(__name__)
 class TextEditor:
     """Handles text file operations with security checks and conflict detection."""
 
-    def __init__(self):
+    def __init__(self, validator_command: Optional[str] = None):
         """Initialize TextEditor."""
         self._validate_environment()
         self.service = TextEditorService()
+        self.validator_command = validator_command
 
     def create_error_response(
         self,
@@ -466,13 +467,16 @@ class TextEditor:
 
             # Calculate new hash
             new_hash = self.calculate_hash(final_content)
-
+            
+            validator_result = self._run_validator(file_path)
+            
             return {
                 "result": "ok",
                 "file_hash": new_hash,
                 "reason": None,
                 "suggestion": suggestion_text,
                 "hint": hint_text,
+                "validator_result": validator_result,
             }
 
         except FileNotFoundError:
@@ -588,11 +592,14 @@ class TextEditor:
 
             # Calculate new hash
             new_hash = self.calculate_hash(final_content)
-
+            
+            validator_result = self._run_validator(file_path)
+            
             return {
                 "result": "ok",
                 "hash": new_hash,
                 "reason": None,
+                "validator_result": validator_result
             }
 
         except FileNotFoundError:
@@ -739,12 +746,15 @@ class TextEditor:
 
             # Calculate new hash
             new_hash = self.calculate_hash(final_content)
-
+            
+            validator_result = self._run_validator(request.file_path)
+            
             return {
                 request.file_path: {
                     "result": "ok",
                     "hash": new_hash,
                     "reason": None,
+                    "validator_result": validator_result,
                 }
             }
 
@@ -763,4 +773,37 @@ class TextEditor:
                     "reason": str(e),
                     "hash": None,
                 }
+            }
+    def _run_validator(self, file_path: str) -> Optional[Dict[str, Any]]:
+        """Run validator command on the updated file if configured.
+        
+        Args:
+            file_path (str): Path to the file to validate
+            
+        Returns:
+            Optional[Dict[str, Any]]: Validation result or None if validation was not run
+        """
+        logger.debug(f"Running validator with command: {self.validator_command} on file: {file_path}")
+        if not self.validator_command:
+            logger.debug("No validator command configured, skipping validation")
+            return None
+            
+        try:
+            import subprocess
+            logger.debug(f"Executing subprocess.run with: {[self.validator_command, file_path]}")
+            result = subprocess.run(
+                [self.validator_command, file_path],
+                capture_output=True,
+                text=True,
+                check=False
+            )
+            return {
+                "exit_code": result.returncode,
+                "stdout": result.stdout,
+                "stderr": result.stderr
+            }
+        except Exception as e:
+            logger.error(f"Error running validator command: {str(e)}")
+            return {
+                "error": str(e)
             }
