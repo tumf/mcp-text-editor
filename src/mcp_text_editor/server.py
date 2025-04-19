@@ -23,7 +23,7 @@ from mcp_text_editor.version import __version__
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("mcp-text-editor")
 
-app = Server("mcp-text-editor")
+app: Server = Server("mcp-text-editor")
 
 # Initialize tool handlers
 get_contents_handler = GetTextFileContentsHandler()
