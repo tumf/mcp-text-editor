@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/tumf-mcp-text-editor-badge.png)](https://mseep.ai/app/tumf-mcp-text-editor)
+
 # MCP Text Editor Server
 
 [![codecov](https://codecov.io/gh/tumf/mcp-text-editor/branch/main/graph/badge.svg?token=52D51U0ZUR)](https://codecov.io/gh/tumf/mcp-text-editor)
