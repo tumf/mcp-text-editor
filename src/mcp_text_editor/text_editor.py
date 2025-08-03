@@ -150,6 +150,7 @@ class TextEditor:
                     if end_value is not None
                     else total_lines
                 )
+                end_1based = end_value if end_value is not None else total_lines
 
                 if start >= total_lines:
                     empty_content = ""
@@ -173,7 +174,7 @@ class TextEditor:
                     {
                         "content": content,
                         "start": start + 1,
-                        "end": end,
+                        "end": end_1based,
                         "range_hash": range_hash,
                         "total_lines": total_lines,
                         "content_size": len(content),
