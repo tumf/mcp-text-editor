@@ -1,6 +1,7 @@
 # MCP Text Editor Server
 
 [![codecov](https://codecov.io/gh/tumf/mcp-text-editor/branch/main/graph/badge.svg?token=52D51U0ZUR)](https://codecov.io/gh/tumf/mcp-text-editor)
+[![Trust Score](https://archestra.ai/mcp-catalog/api/badge/quality/tumf/mcp-text-editor)](https://archestra.ai/mcp-catalog/tumf__mcp-text-editor)
 [![smithery badge](https://smithery.ai/badge/mcp-text-editor)](https://smithery.ai/server/mcp-text-editor)
 [![Glama MCP Server](https://glama.ai/mcp/servers/k44dnvso10/badge)](https://glama.ai/mcp/servers/k44dnvso10)
 [![MseeP.ai Security Assessment Badge](https://mseep.net/pr/tumf-mcp-text-editor-badge.png)](https://mseep.ai/app/tumf-mcp-text-editor)
