@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .models import DeleteTextFileContentsRequest, EditPatch, FileRanges
 from .service import TextEditorService
+from .utils import normalize_and_validate_path, secure_compare_hash, locked_file
 
 logger = logging.getLogger(__name__)
 
@@ -65,22 +66,21 @@ class TextEditor:
         # Future: Add environment validation if needed
         pass  # pragma: no cover
 
-    def _validate_file_path(self, file_path: str | os.PathLike) -> None:
+    def _validate_file_path(self, file_path: str | os.PathLike) -> str:
         """
         Validate if file path is allowed and secure.
 
         Args:
             file_path (str | os.PathLike): Path to validate
 
+        Returns:
+            str: Normalized and validated absolute path
+
         Raises:
             ValueError: If path is not allowed or contains dangerous patterns
         """
-        # Convert path to string for checking
-        path_str = str(file_path)
-
-        # Check for dangerous patterns
-        if ".." in path_str:
-            raise ValueError("Path traversal not allowed")
+        # Use the secure path validation utility
+        return normalize_and_validate_path(str(file_path))
 
     @staticmethod
     def calculate_hash(content: str) -> str:
@@ -111,9 +111,9 @@ class TextEditor:
             FileNotFoundError: If file not found
             UnicodeDecodeError: If file cannot be decoded with specified encoding
         """
-        self._validate_file_path(file_path)
+        validated_path = self._validate_file_path(file_path)
         try:
-            with open(file_path, "r", encoding=encoding) as f:
+            with locked_file(validated_path, "r") as f:
                 lines = f.readlines()
             file_content = "".join(lines)
             return lines, file_content, len(lines)
@@ -295,7 +295,7 @@ class TextEditor:
                     return self.create_error_response(
                         "Unexpected error - Cannot treat existing file as new",
                     )
-                elif current_file_hash != expected_file_hash:
+                elif not secure_compare_hash(current_file_hash, expected_file_hash):
                     suggestion = "patch"
                     hint = "Please use get_text_file_contents tool to get the current content and hash"
 
@@ -411,7 +411,7 @@ class TextEditor:
                         target_content = "".join(target_lines)
                         actual_range_hash = self.calculate_hash(target_content)
 
-                        if actual_range_hash != expected_range_hash:
+                        if not secure_compare_hash(actual_range_hash, expected_range_hash):
                             return {
                                 "result": "error",
                                 "reason": "Content range hash mismatch - Please use get_text_file_contents tool with the same start and end to get current content and hashes, then retry with the updated hashes.",
@@ -462,7 +462,7 @@ class TextEditor:
 
             # Write the final content back to file
             final_content = "".join(lines)
-            with open(file_path, "w", encoding=encoding) as f:
+            with locked_file(file_path, "w") as f:
                 f.write(final_content)
 
             # Calculate new hash
@@ -546,7 +546,7 @@ class TextEditor:
                 encoding=encoding,
             )
 
-            if current_hash != file_hash:
+            if not secure_compare_hash(current_hash, file_hash):
                 return {
                     "result": "error",
                     "reason": "File hash mismatch - Please use get_text_file_contents tool to get current content and hash",
@@ -584,7 +584,7 @@ class TextEditor:
 
             # Join lines and write back to file
             final_content = "".join(lines)
-            with open(file_path, "w", encoding=encoding) as f:
+            with locked_file(file_path, "w") as f:
                 f.write(final_content)
 
             # Calculate new hash
@@ -628,7 +628,7 @@ class TextEditor:
                 - hash: New file hash if successful
                 - reason: Error message if result is "error"
         """
-        self._validate_file_path(request.file_path)
+        validated_path = self._validate_file_path(request.file_path)
 
         try:
             (
@@ -644,7 +644,7 @@ class TextEditor:
             )
 
             # Check for conflicts
-            if current_hash != request.file_hash:
+            if not secure_compare_hash(current_hash, request.file_hash):
                 return {
                     request.file_path: {
                         "result": "error",
@@ -722,7 +722,7 @@ class TextEditor:
 
                 # Verify range content hash
                 range_content = "".join(lines[start_idx:end_idx])
-                if self.calculate_hash(range_content) != range_.range_hash:
+                if not secure_compare_hash(self.calculate_hash(range_content), range_.range_hash):
                     return {
                         request.file_path: {
                             "result": "error",
@@ -735,7 +735,7 @@ class TextEditor:
 
             # Write the final content back to file
             final_content = "".join(lines)
-            with open(request.file_path, "w", encoding=request.encoding) as f:
+            with locked_file(validated_path, "w") as f:
                 f.write(final_content)
 
             # Calculate new hash
