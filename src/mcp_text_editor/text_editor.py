@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .models import DeleteTextFileContentsRequest, EditPatch, FileRanges
 from .service import TextEditorService
-from .utils import normalize_and_validate_path, secure_compare_hash, locked_file
+from .utils import locked_file, normalize_and_validate_path, secure_compare_hash
 
 logger = logging.getLogger(__name__)
 
@@ -411,7 +411,9 @@ class TextEditor:
                         target_content = "".join(target_lines)
                         actual_range_hash = self.calculate_hash(target_content)
 
-                        if not secure_compare_hash(actual_range_hash, expected_range_hash):
+                        if not secure_compare_hash(
+                            actual_range_hash, expected_range_hash
+                        ):
                             return {
                                 "result": "error",
                                 "reason": "Content range hash mismatch - Please use get_text_file_contents tool with the same start and end to get current content and hashes, then retry with the updated hashes.",
@@ -722,7 +724,9 @@ class TextEditor:
 
                 # Verify range content hash
                 range_content = "".join(lines[start_idx:end_idx])
-                if not secure_compare_hash(self.calculate_hash(range_content), range_.range_hash):
+                if not secure_compare_hash(
+                    self.calculate_hash(range_content), range_.range_hash
+                ):
                     return {
                         request.file_path: {
                             "result": "error",

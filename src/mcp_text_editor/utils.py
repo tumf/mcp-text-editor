@@ -1,4 +1,5 @@
 """Security utilities for the MCP Text Editor."""
+
 import fcntl
 import hmac
 import os
@@ -12,7 +13,6 @@ def _contains_traversal_patterns(s: str) -> bool:
     if not isinstance(s, str):
         return False
     lowered = s.lower()
-    patterns = ["..", "~", "%2f", "%2e", "%2f", "%5c"]
     # raw .. as path component or encoded forms
     if ".." in s:
         return True
@@ -45,7 +45,7 @@ def normalize_and_validate_path(file_path: str, base_dir: Optional[str] = None) 
     if not file_path:
         raise ValueError("File path cannot be empty")
     # Reject null byte injection early
-    if '\x00' in file_path:
+    if "\x00" in file_path:
         raise ValueError("Invalid path: null byte detected")
     # If base_dir is provided, be strict: no absolute paths, no traversal/token tricks
     if base_dir is not None:
@@ -54,7 +54,9 @@ def normalize_and_validate_path(file_path: str, base_dir: Optional[str] = None) 
             raise ValueError("Absolute paths are not allowed")
         # Reject obvious traversal patterns
         if _contains_traversal_patterns(file_path):
-            raise ValueError("Directory traversal patterns (.., ~, encoded) are not allowed")
+            raise ValueError(
+                "Directory traversal patterns (.., ~, encoded) are not allowed"
+            )
         base_path = pathlib.Path(base_dir).resolve()
         try:
             candidate = (base_path / file_path).resolve()
@@ -63,8 +65,8 @@ def normalize_and_validate_path(file_path: str, base_dir: Optional[str] = None) 
         # Ensure the resolved path is within the base directory
         try:
             candidate.relative_to(base_path)
-        except ValueError:
-            raise ValueError("Path resolves outside of allowed base directory")
+        except ValueError as e:
+            raise ValueError("Path resolves outside of allowed base directory") from e
         return str(candidate)
     # No base_dir: allow absolute or relative paths, but still check for obvious traversal attempts
     if _contains_traversal_patterns(file_path):
@@ -76,27 +78,27 @@ def normalize_and_validate_path(file_path: str, base_dir: Optional[str] = None) 
     return str(resolved)
 
 
-def secure_compare_hash(hash1: str, hash2: str) -> bool:
+def secure_compare_hash(hash1: str | None, hash2: str | None) -> bool:
     """
     Securely compare two hash strings using hmac.compare_digest to prevent timing attacks.
     Args:
-        hash1 (str): First hash string
-        hash2 (str): Second hash string
+        hash1 (str | None): First hash string
+        hash2 (str | None): Second hash string
     Returns:
         bool: True if hashes match, False otherwise
     """
     if hash1 is None or hash2 is None:
         return hash1 == hash2
     try:
-        hash1_bytes = hash1.encode('utf-8') if isinstance(hash1, str) else bytes(hash1)
-        hash2_bytes = hash2.encode('utf-8') if isinstance(hash2, str) else bytes(hash2)
+        hash1_bytes = hash1.encode("utf-8")
+        hash2_bytes = hash2.encode("utf-8")
         return hmac.compare_digest(hash1_bytes, hash2_bytes)
     except (UnicodeError, TypeError, AttributeError):
         return hash1 == hash2
 
 
 @contextmanager
-def locked_file(file_path: str, mode: str = 'r+') -> Generator:
+def locked_file(file_path: str, mode: str = "r+") -> Generator:
     """
     Context manager for file operations with exclusive/shared locking.
     Args:
@@ -108,7 +110,7 @@ def locked_file(file_path: str, mode: str = 'r+') -> Generator:
         OSError: If file locking fails
         IOError: If file operations fail
     """
-    if 'r' in mode and '+' not in mode and 'w' not in mode and 'a' not in mode:
+    if "r" in mode and "+" not in mode and "w" not in mode and "a" not in mode:
         lock_type = fcntl.LOCK_SH
     else:
         lock_type = fcntl.LOCK_EX
@@ -116,12 +118,16 @@ def locked_file(file_path: str, mode: str = 'r+') -> Generator:
     try:
         # When opening for write/create, ensure parent directory exists
         parent = os.path.dirname(file_path)
-        if parent and ('w' in mode or 'a' in mode or '+' in mode):
+        if parent and ("w" in mode or "a" in mode or "+" in mode):
             os.makedirs(parent, exist_ok=True)
         # Prevent opening a directory for reading
-        if os.path.isdir(file_path) and 'r' in mode and ('w' not in mode and '+' not in mode):
+        if (
+            os.path.isdir(file_path)
+            and "r" in mode
+            and ("w" not in mode and "+" not in mode)
+        ):
             raise ValueError("Invalid path: path points to a directory")
-        file_obj = open(file_path, mode, encoding='utf-8')
+        file_obj = open(file_path, mode, encoding="utf-8")
         fcntl.flock(file_obj.fileno(), lock_type)
         yield file_obj
     finally:

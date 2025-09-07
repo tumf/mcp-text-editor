@@ -10,7 +10,7 @@ from .models import (
     EditResult,
     FileRange,
 )
-from .utils import secure_compare_hash, locked_file
+from .utils import locked_file, secure_compare_hash
 
 
 class TextEditorService:

@@ -1,9 +1,10 @@
 """Tests for path validation security utilities."""
 
-import pytest
-import tempfile
 import os
+import tempfile
 from pathlib import Path
+
+import pytest
 
 from mcp_text_editor.utils import normalize_and_validate_path
 
@@ -36,7 +37,7 @@ class TestPathValidation:
         with tempfile.TemporaryDirectory() as tmpdir:
             with pytest.raises(ValueError, match="Directory traversal patterns"):
                 normalize_and_validate_path("../etc/passwd", tmpdir)
-                
+
             with pytest.raises(ValueError, match="Directory traversal patterns"):
                 normalize_and_validate_path("subdir/../../../etc/passwd", tmpdir)
 
@@ -58,13 +59,15 @@ class TestPathValidation:
             # Create a symlink that points outside the base directory
             outside_file = "/tmp/outside.txt"
             try:
-                with open(outside_file, 'w') as f:
+                with open(outside_file, "w") as f:
                     f.write("test")
-                
+
                 symlink_path = Path(tmpdir) / "symlink.txt"
                 symlink_path.symlink_to(outside_file)
-                
-                with pytest.raises(ValueError, match="Path resolves outside of allowed base directory"):
+
+                with pytest.raises(
+                    ValueError, match="Path resolves outside of allowed base directory"
+                ):
                     normalize_and_validate_path("symlink.txt", tmpdir)
             finally:
                 # Clean up
@@ -99,7 +102,7 @@ class TestPathValidation:
                 "/..",
                 "/./../../etc/passwd",
             ]
-            
+
             for path in malicious_paths:
                 with pytest.raises(ValueError):
                     normalize_and_validate_path(path, tmpdir)
@@ -116,7 +119,7 @@ class TestPathValidation:
             # Use a base directory with .. in it
             weird_base = os.path.join(tmpdir, "subdir", "..", "actual")
             os.makedirs(os.path.join(tmpdir, "actual"), exist_ok=True)
-            
+
             result = normalize_and_validate_path("test.txt", weird_base)
             expected = str(Path(tmpdir).resolve() / "actual" / "test.txt")
             assert result == expected

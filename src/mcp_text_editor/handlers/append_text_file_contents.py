@@ -8,8 +8,8 @@ from typing import Any, Dict, Sequence
 
 from mcp.types import TextContent, Tool
 
-from .base import BaseHandler
 from ..utils import secure_compare_hash
+from .base import BaseHandler
 
 logger = logging.getLogger("mcp-text-editor")
 
