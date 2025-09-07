@@ -1,0 +1,14 @@
+repos:
+  - repo: local
+    hooks:
+      - id: make-check-test
+        name: Run make check and test
+        entry: make check test
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+      - id: commit-msg-ascii
+        name: Commit message must be ASCII
+        entry: python3 scripts/validate_commit_message_ascii.py
+        language: system
+        stages: [commit-msg]

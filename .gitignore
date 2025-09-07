@@ -48,3 +48,5 @@ htmlcov/
 # Logs
 *.log
 prompt.md
+
+.serena/
