@@ -4,7 +4,7 @@ When completing any development task:
 
 ## Code Quality
 1. **Format code**: `make format`
-2. **Lint check**: `make lint` 
+2. **Lint check**: `make lint`
 3. **Type check**: `make typecheck`
 4. **All quality checks**: `make check`
 

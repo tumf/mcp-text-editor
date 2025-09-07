@@ -5,7 +5,7 @@ test:
 	uv run pytest
 
 install:
-	uv sync --all-extras 
+	uv sync --all-extras
 
 coverage:
 	uv run pytest --cov=mcp_text_editor --cov-report=term-missing
@@ -28,3 +28,9 @@ typecheck:
 check:  lint typecheck
 fix: format
 all: format typecheck coverage
+
+pre-commit-install:
+	uv run pre-commit install --install-hooks --hook-type pre-commit --hook-type commit-msg
+
+pre-commit-run:
+	uv run pre-commit run --all-files

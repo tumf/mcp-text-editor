@@ -21,7 +21,7 @@ make format
 
 # Lint code
 uv run black --check src tests
-uv run isort --check src tests  
+uv run isort --check src tests
 uv run ruff check src tests
 make lint
 
