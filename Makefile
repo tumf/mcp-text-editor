@@ -2,27 +2,27 @@
 .DEFAULT_GOAL := all
 
 test:
-	pytest
+	uv run pytest
 
 install:
 	uv sync --all-extras 
 
 coverage:
-	pytest --cov=mcp_text_editor --cov-report=term-missing
+	uv run pytest --cov=mcp_text_editor --cov-report=term-missing
 
 format:
-	black src tests
-	isort src tests
-	ruff check --fix src tests
+	uv run black src tests
+	uv run isort src tests
+	uv run ruff check --fix src tests
 
 
 lint:
-	black --check src tests
-	isort --check src tests
-	ruff check src tests
+	uv run black --check src tests
+	uv run isort --check src tests
+	uv run ruff check src tests
 
 typecheck:
-	mypy src tests
+	uv run mypy src tests
 
 # Run all checks required before pushing
 check:  lint typecheck

@@ -8,7 +8,7 @@ from typing import Any, Dict, Sequence
 
 from mcp.types import TextContent, Tool
 
-from mcp_text_editor.handlers.base import BaseHandler
+from .base import BaseHandler
 
 logger = logging.getLogger("mcp-text-editor")
 

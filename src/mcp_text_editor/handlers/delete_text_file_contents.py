@@ -8,8 +8,8 @@ from typing import Any, Dict, Sequence
 
 from mcp.types import TextContent, Tool
 
-from mcp_text_editor.handlers.base import BaseHandler
-from mcp_text_editor.models import DeleteTextFileContentsRequest, FileRange
+from ..models import DeleteTextFileContentsRequest, FileRange
+from .base import BaseHandler
 
 logger = logging.getLogger("mcp-text-editor")
 

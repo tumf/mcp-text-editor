@@ -1,10 +1,8 @@
 # MCP Text Editor Server
 
 [![codecov](https://codecov.io/gh/tumf/mcp-text-editor/branch/main/graph/badge.svg?token=52D51U0ZUR)](https://codecov.io/gh/tumf/mcp-text-editor)
-[![Trust Score](https://archestra.ai/mcp-catalog/api/badge/quality/tumf/mcp-text-editor)](https://archestra.ai/mcp-catalog/tumf__mcp-text-editor)
 [![smithery badge](https://smithery.ai/badge/mcp-text-editor)](https://smithery.ai/server/mcp-text-editor)
 [![Glama MCP Server](https://glama.ai/mcp/servers/k44dnvso10/badge)](https://glama.ai/mcp/servers/k44dnvso10)
-[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/tumf-mcp-text-editor-badge.png)](https://mseep.ai/app/tumf-mcp-text-editor)
 
 A Model Context Protocol (MCP) server that provides line-oriented text file editing capabilities through a standardized API. Optimized for LLM tools with efficient partial file access to minimize token usage.
 
@@ -23,25 +21,6 @@ code ~/Library/Application\ Support/Claude/claude_desktop_config.json
       "command": "uvx",
       "args": [
         "mcp-text-editor"
-      ]
-    }
-  }
-}
-```
-
-or with docker:
-```json
-{
-  "mcpServers": {
-    "text-editor": {
-      "command": "docker",
-      "args": [
-          "run",
-          "-i",
-          "--rm",
-          "--mount",
-          "type=bind,src=/some/path/src,dst=/some/path/dst",
-          "mcp/text-editor"
       ]
     }
   }
@@ -134,11 +113,6 @@ pyenv install 3.13.0
 pyenv local 3.13.0
 ```
 
-### Docker Installation
-```
-docker build --network=host -t mcp/text-editor .
-```
-
 2. Install uv (recommended) or pip
 
 ```bash
@@ -159,18 +133,6 @@ Start the server:
 
 ```bash
 python -m mcp_text_editor
-```
-
-Start the server with docker:
-
-```bash
-docker run -i --rm --mount "type=bind,src=/some/path/src,dst=/some/path/dst" mcp/text-editor
-```
-
-with inspector:
-
-```bash
-npx @modelcontextprotocol/inspector docker run -i --rm --mount "type=bind,src=/some/path/src,dst=/some/path/dst" mcp/text-editor
 ```
 
 ### MCP Tools
