@@ -76,3 +76,9 @@ async def main() -> None:
     """Main entry point for the MCP text editor server."""
     logger.info(f"Starting MCP text editor server v{__version__}")
     await app.run()  # type: ignore[func-returns-value]
+
+
+if __name__ == "__main__":
+    import asyncio
+
+    asyncio.run(main())

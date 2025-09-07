@@ -8,6 +8,7 @@ from typing import Any, Dict, Sequence
 
 from mcp.types import TextContent, Tool
 
+from ..utils import secure_compare_hash
 from .base import BaseHandler
 
 logger = logging.getLogger("mcp-text-editor")
@@ -76,7 +77,7 @@ class AppendTextFileContentsHandler(BaseHandler):
             )
 
             # Verify file hash
-            if current_hash != arguments["file_hash"]:
+            if not secure_compare_hash(current_hash, arguments["file_hash"]):
                 raise RuntimeError("File hash mismatch - file may have been modified")
 
             # Ensure the append content ends with newline

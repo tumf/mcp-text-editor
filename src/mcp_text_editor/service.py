@@ -10,6 +10,7 @@ from .models import (
     EditResult,
     FileRange,
 )
+from .utils import locked_file, secure_compare_hash
 
 
 class TextEditorService:
@@ -25,7 +26,7 @@ class TextEditorService:
         file_path: str, start: int = 1, end: Optional[int] = None
     ) -> Tuple[str, int, int]:
         """Read file contents within specified line range."""
-        with open(file_path, "r", encoding="utf-8") as f:
+        with locked_file(file_path, "r") as f:
             lines = f.readlines()
 
         # Adjust line numbers to 0-based index
@@ -60,12 +61,12 @@ class TextEditorService:
         """Edit file contents with conflict detection."""
         current_hash = None
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with locked_file(file_path, "r") as f:
                 current_content = f.read()
                 current_hash = self.calculate_hash(current_content)
 
             # Check for conflicts
-            if current_hash != operation.hash:
+            if not secure_compare_hash(current_hash, operation.hash):
                 return {
                     file_path: EditResult(
                         result="error",
@@ -97,7 +98,7 @@ class TextEditorService:
 
             # Write new content
             new_content = "".join(new_lines)
-            with open(file_path, "w", encoding="utf-8") as f:
+            with locked_file(file_path, "w") as f:
                 f.write(new_content)
 
             new_hash = self.calculate_hash(new_content)
@@ -133,12 +134,12 @@ class TextEditorService:
         """Delete specified ranges from a text file with conflict detection."""
         current_hash = None
         try:
-            with open(request.file_path, "r", encoding=request.encoding) as f:
+            with locked_file(request.file_path, "r") as f:
                 current_content = f.read()
                 current_hash = self.calculate_hash(current_content)
 
             # Check for conflicts
-            if current_hash != request.file_hash:
+            if not secure_compare_hash(current_hash, request.file_hash):
                 return {
                     request.file_path: EditResult(
                         result="error",
@@ -177,7 +178,7 @@ class TextEditorService:
                 end_idx = range_.end if range_.end else len(lines)
                 target_content = "".join(lines[start_idx:end_idx])
                 target_hash = self.calculate_hash(target_content)
-                if target_hash != range_.range_hash:
+                if not secure_compare_hash(target_hash, range_.range_hash):
                     return {
                         request.file_path: EditResult(
                             result="error",
@@ -189,7 +190,7 @@ class TextEditorService:
 
             # Write new content
             new_content = "".join(new_lines)
-            with open(request.file_path, "w", encoding=request.encoding) as f:
+            with locked_file(request.file_path, "w") as f:
                 f.write(new_content)
 
             new_hash = self.calculate_hash(new_content)
