@@ -68,7 +68,7 @@ def normalize_and_validate_path(file_path: str, base_dir: Optional[str] = None) 
         return str(candidate)
     # No base_dir: allow absolute or relative paths, but still check for obvious traversal attempts
     if _contains_traversal_patterns(file_path):
-        raise ValueError("Directory traversal patterns (.., ~, encoded) are not allowed")
+        raise ValueError("Path traversal not allowed")
     try:
         resolved = pathlib.Path(file_path).resolve()
     except (OSError, RuntimeError) as e:
