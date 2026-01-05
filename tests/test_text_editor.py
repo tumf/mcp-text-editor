@@ -102,9 +102,14 @@ async def test_calculate_hash(editor):
 async def test_read_file_contents(editor, test_file):
     """Test reading file contents."""
     # Test reading entire file
-    content, start, end, hash_value, total_lines, size = (
-        await editor.read_file_contents(str(test_file))
-    )
+    (
+        content,
+        start,
+        end,
+        hash_value,
+        total_lines,
+        size,
+    ) = await editor.read_file_contents(str(test_file))
     assert content == "Line 1\nLine 2\nLine 3\nLine 4\nLine 5\n"
     assert start == 1
     assert end == 5
@@ -113,9 +118,14 @@ async def test_read_file_contents(editor, test_file):
     assert size == len(content)
 
     # Test reading specific lines
-    content, start, end, hash_value, total_lines, size = (
-        await editor.read_file_contents(str(test_file), start=2, end=4)
-    )
+    (
+        content,
+        start,
+        end,
+        hash_value,
+        total_lines,
+        size,
+    ) = await editor.read_file_contents(str(test_file), start=2, end=4)
     assert content == "Line 2\nLine 3\nLine 4\n"
     assert start == 2
     assert end == 4
@@ -571,9 +581,14 @@ async def test_read_file_contents_with_start_beyond_total(editor, tmp_path):
     test_file.write_text("line1\nline2\nline3\n")
 
     # Call read_file_contents with start beyond total lines
-    content, start, end, content_hash, total_lines, content_size = (
-        await editor.read_file_contents(str(test_file), start=10)
-    )
+    (
+        content,
+        start,
+        end,
+        content_hash,
+        total_lines,
+        content_size,
+    ) = await editor.read_file_contents(str(test_file), start=10)
 
     # Verify empty content is returned
     assert content == ""
@@ -909,3 +924,92 @@ async def test_read_file_not_found_error(editor, tmp_path):
 
     assert "File not found:" in str(excinfo.value)
     assert str(non_existent_file) in str(excinfo.value)
+
+
+@pytest.mark.asyncio
+async def test_read_multiple_ranges_hash_consistency(editor, tmp_path):
+    """Test that hash from read_multiple_ranges can be used for edit_file_contents.
+
+    This is a regression test for issue #12:
+    https://github.com/tumf/mcp-text-editor/issues/12
+
+    The bug was that read_multiple_ranges returned incorrect hash values for
+    multi-line ranges due to inconsistent end value handling.
+    """
+    # Create a test file with multiple lines
+    test_file = tmp_path / "test.txt"
+    content = "Line 1\nLine 2\nLine 3\nLine 4\nLine 5\n"
+    test_file.write_text(content)
+
+    # Read a multi-line range
+    ranges = [
+        {
+            "file_path": str(test_file),
+            "ranges": [{"start": 2, "end": 4}],
+        }
+    ]
+    result = await editor.read_multiple_ranges(ranges)
+
+    file_result = result[str(test_file)]
+    range_result = file_result["ranges"][0]
+
+    # Verify the returned end value matches the actual content
+    assert range_result["start"] == 2
+    assert range_result["end"] == 4  # Should be 4, not the input value if different
+    assert range_result["content"] == "Line 2\nLine 3\nLine 4\n"
+
+    # Now use the hash to edit the file - this should succeed
+    edit_result = await editor.edit_file_contents(
+        str(test_file),
+        file_result["file_hash"],
+        [
+            {
+                "start": 2,
+                "end": 4,
+                "range_hash": range_result["range_hash"],
+                "contents": "Modified Line 2\nModified Line 3\nModified Line 4\n",
+            }
+        ],
+    )
+
+    # The edit should succeed without hash mismatch
+    assert edit_result["result"] == "ok", f"Edit failed: {edit_result.get('reason')}"
+
+    # Verify the content was changed correctly
+    new_content = test_file.read_text()
+    assert (
+        new_content
+        == "Line 1\nModified Line 2\nModified Line 3\nModified Line 4\nLine 5\n"
+    )
+
+
+@pytest.mark.asyncio
+async def test_read_multiple_ranges_end_exceeds_file_length(editor, tmp_path):
+    """Test that end value is clamped to file length.
+
+    Related to issue #12: When end value exceeds file length,
+    the returned end should reflect actual content, not the input value.
+    """
+    # Create a test file with 3 lines
+    test_file = tmp_path / "test.txt"
+    content = "Line 1\nLine 2\nLine 3\n"
+    test_file.write_text(content)
+
+    # Request range with end exceeding file length
+    ranges = [
+        {
+            "file_path": str(test_file),
+            "ranges": [{"start": 1, "end": 10}],  # end=10 exceeds 3 lines
+        }
+    ]
+    result = await editor.read_multiple_ranges(ranges)
+
+    range_result = result[str(test_file)]["ranges"][0]
+
+    # end should be clamped to actual file length (3), not 10
+    assert range_result["end"] == 3
+    assert range_result["content"] == content
+
+    # The hash should match the actual content
+    expected_hash = editor.calculate_hash(content)
+    assert range_result["range_hash"] == expected_hash
