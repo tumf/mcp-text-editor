@@ -1,12 +1,23 @@
 # Changelog
 
+## [1.2.0] - 2026-01-05
+
+### Fixed
+
+- Fix hash calculation bug in `read_multiple_ranges` for multi-line ranges (#12)
+  - The returned `end` value now correctly reflects the actual sliced range
+  - This fixes "Content hash mismatch" errors when editing multi-line ranges
+
+### Added
+
+- Regression tests for hash consistency between read and edit operations
+
 ## [1.1.1] - 2026-01-05
 
 ### Fixed
 
-- Add Gemini/Vertex AI schema compatibility for MCP tools
+- Add Gemini/Vertex AI schema compatibility for MCP tools (#11)
 - Resolve lint and typecheck issues
-- Correct hash calculation for multi-line ranges
 - Path validation security improvements with secure hash compare and file locking
 
 ### Added
