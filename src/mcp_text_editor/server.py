@@ -1,10 +1,10 @@
 """MCP Text Editor Server implementation."""
 
 import logging
-from typing import Sequence
+from typing import List, Sequence
 
 from mcp.server.fastmcp import FastMCP
-from mcp.types import TextContent
+from mcp.types import TextContent, Tool
 
 from .handlers import (
     AppendTextFileContentsHandler,
@@ -14,13 +14,46 @@ from .handlers import (
     InsertTextFileContentsHandler,
     PatchTextFileContentsHandler,
 )
+from .schema_compat import make_schema_gemini_compatible
 from .version import __version__
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("mcp-text-editor")
 
-app = FastMCP("mcp-text-editor")
+
+class GeminiCompatibleFastMCP(FastMCP):
+    """FastMCP subclass that produces Gemini-compatible tool schemas.
+
+    This class overrides list_tools to convert anyOf schemas to the
+    nullable format that Gemini/Vertex AI can understand.
+
+    See: https://github.com/tumf/mcp-text-editor/issues/11
+    """
+
+    async def list_tools(self) -> List[Tool]:
+        """List available tools with Gemini-compatible schemas.
+
+        Returns:
+            List of Tool objects with converted inputSchema.
+        """
+        tools = await super().list_tools()
+
+        # Convert each tool's inputSchema to Gemini-compatible format
+        compatible_tools = []
+        for tool in tools:
+            compatible_schema = make_schema_gemini_compatible(tool.inputSchema)
+            compatible_tool = Tool(
+                name=tool.name,
+                description=tool.description,
+                inputSchema=compatible_schema,
+            )
+            compatible_tools.append(compatible_tool)
+
+        return compatible_tools
+
+
+app = GeminiCompatibleFastMCP("mcp-text-editor")
 
 # Initialize handlers
 get_contents_handler = GetTextFileContentsHandler()
