@@ -145,12 +145,14 @@ class TextEditor:
             for range_spec in file_range.ranges:
                 start = max(1, range_spec.start) - 1
                 end_value = range_spec.end
+                # Calculate actual end for slicing (0-based exclusive)
                 end = (
                     min(total_lines, end_value)
                     if end_value is not None
                     else total_lines
                 )
-                end_1based = end_value if end_value is not None else total_lines
+                # end_1based should reflect the actual sliced range, not the input value
+                end_1based = end
 
                 if start >= total_lines:
                     empty_content = ""
