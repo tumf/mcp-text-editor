@@ -50,3 +50,4 @@ htmlcov/
 prompt.md
 
 .serena/
+.envrc
