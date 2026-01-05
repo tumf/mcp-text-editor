@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.1.1] - 2026-01-05
+
+### Fixed
+
+- Add Gemini/Vertex AI schema compatibility for MCP tools
+- Resolve lint and typecheck issues
+- Correct hash calculation for multi-line ranges
+- Path validation security improvements with secure hash compare and file locking
+
+### Added
+
+- Pre-commit hooks for code quality enforcement
+- Docker support for running the tool
+
+### Changed
+
+- Improved codecov coverage targets
+
 ## [1.1.0] - 2024-12-23
 
 ### Added
