@@ -1,11 +1,12 @@
 """Security utilities for the MCP Text Editor."""
 
-import fcntl
 import hmac
 import os
 import pathlib
 from contextlib import contextmanager
 from typing import Generator, Optional
+
+import portalocker
 
 
 def _contains_traversal_patterns(s: str) -> bool:
@@ -111,9 +112,9 @@ def locked_file(file_path: str, mode: str = "r+") -> Generator:
         IOError: If file operations fail
     """
     if "r" in mode and "+" not in mode and "w" not in mode and "a" not in mode:
-        lock_type = fcntl.LOCK_SH
+        lock_type = portalocker.LOCK_SH
     else:
-        lock_type = fcntl.LOCK_EX
+        lock_type = portalocker.LOCK_EX
     file_obj = None
     try:
         # When opening for write/create, ensure parent directory exists
@@ -128,12 +129,12 @@ def locked_file(file_path: str, mode: str = "r+") -> Generator:
         ):
             raise ValueError("Invalid path: path points to a directory")
         file_obj = open(file_path, mode, encoding="utf-8")
-        fcntl.flock(file_obj.fileno(), lock_type)
+        portalocker.lock(file_obj, lock_type)
         yield file_obj
     finally:
         if file_obj:
             try:
-                fcntl.flock(file_obj.fileno(), fcntl.LOCK_UN)
+                portalocker.unlock(file_obj)
             except (OSError, ValueError):
                 pass
             try:

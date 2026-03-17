@@ -8,6 +8,7 @@ authors = [
 dependencies = [
     "mcp>=1.25.0",
     "chardet>=5.2.0",
+    "portalocker>=3.2.0",
 ]
 requires-python = ">=3.13"
 readme = "README.md"
