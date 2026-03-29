@@ -6,6 +6,10 @@
 
 A Model Context Protocol (MCP) server that provides line-oriented text file editing capabilities through a standardized API. Optimized for LLM tools with efficient partial file access to minimize token usage.
 
+## Hosted deployment
+
+A hosted deployment is available on [Fronteir AI](https://fronteir.ai/mcp/tumf-mcp-text-editor).
+
 ## Quick Start for Claude.app Users
 
 To use this editor with Claude.app, add the following configuration to your prompt:
