@@ -333,7 +333,7 @@ async def test_empty_content_handling(editor, tmp_path):
         str(test_file),
         "",  # No hash for empty file
         [
-            {"line_start": 1, "contents": "New content\n", "range_hash": ""}
+            {"start": 1, "contents": "New content\n", "range_hash": ""}
         ],  # Empty range_hash for new files
     )
 

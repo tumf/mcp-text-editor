@@ -2,7 +2,7 @@
 
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class GetTextFileContentsRequest(BaseModel):
@@ -24,6 +24,8 @@ class GetTextFileContentsResponse(BaseModel):
 
 class EditPatch(BaseModel):
     """Model for a single edit patch operation."""
+
+    model_config = ConfigDict(extra="forbid")
 
     start: int = Field(1, description="Starting line for edit")
     end: Optional[int] = Field(None, description="Ending line for edit")
