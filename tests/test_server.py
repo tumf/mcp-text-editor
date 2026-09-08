@@ -18,11 +18,19 @@ from mcp_text_editor.server import (
     patch_file_handler,
 )
 from mcp_text_editor.text_editor import TextEditor
+from mcp_text_editor.version import __version__
 
 
 @pytest.fixture
 def editor():
     return TextEditor()
+
+
+def test_initialization_options_report_project_version():
+    """Report the mcp-text-editor version instead of the SDK version."""
+    options = app._mcp_server.create_initialization_options()
+
+    assert options.server_version == __version__
 
 
 @pytest.mark.asyncio
