@@ -143,212 +143,140 @@ The server provides several tools for text file manipulation:
 
 Get the contents of one or more text files with line range specification.
 
-**Single Range Request:**
+**Request:**
 
-```json
-{
-  "file_path": "path/to/file.txt",
-  "line_start": 1,
-  "line_end": 10,
-  "encoding": "utf-8"  // Optional, defaults to utf-8
-}
-```
-
-**Multiple Ranges Request:**
+The tool accepts a `files` array. Each file contains one or more line ranges using
+`start` and `end`. File paths must be absolute.
 
 ```json
 {
   "files": [
     {
-      "file_path": "file1.txt",
+      "file_path": "/absolute/path/to/file.txt",
       "ranges": [
         {"start": 1, "end": 10},
-        {"start": 20, "end": 30}
-      ],
-      "encoding": "shift_jis"  // Optional, defaults to utf-8
-    },
-    {
-      "file_path": "file2.txt",
-      "ranges": [
-        {"start": 5, "end": 15}
+        {"start": 20, "end": null}
       ]
     }
-  ]
+  ],
+  "encoding": "utf-8"
 }
 ```
 
 Parameters:
-- `file_path`: Path to the text file
-- `line_start`/`start`: Line number to start from (1-based)
-- `line_end`/`end`: Line number to end at (inclusive, null for end of file)
-- `encoding`: File encoding (default: "utf-8"). Specify the encoding of the text file (e.g., "shift_jis", "latin1")
 
-**Single Range Response:**
+- `file_path`: Absolute path to the text file
+- `start`: First line to read (1-based)
+- `end`: Last line to read (inclusive); `null` reads through end of file
+- `encoding`: File encoding for all requested files (default: `utf-8`)
 
-```json
-{
-  "contents": "File contents",
-  "line_start": 1,
-  "line_end": 10,
-  "hash": "sha256-hash-of-contents",
-  "file_lines": 50,
-  "file_size": 1024
-}
-```
+**Response:**
 
-**Multiple Ranges Response:**
+The top-level object is keyed by absolute file path. `file_hash` protects the
+whole-file state; each `range_hash` protects the corresponding range.
 
 ```json
 {
-  "file1.txt": [
-    {
-      "content": "Lines 1-10 content",
-      "start": 1,
-      "end": 10,
-      "hash": "sha256-hash-1",
-      "total_lines": 50,
-      "content_size": 512
-    },
-    {
-      "content": "Lines 20-30 content",
-      "start": 20,
-      "end": 30,
-      "hash": "sha256-hash-2",
-      "total_lines": 50,
-      "content_size": 512
-    }
-  ],
-  "file2.txt": [
-    {
-      "content": "Lines 5-15 content",
-      "start": 5,
-      "end": 15,
-      "hash": "sha256-hash-3",
-      "total_lines": 30,
-      "content_size": 256
-    }
-  ]
+  "/absolute/path/to/file.txt": {
+    "file_hash": "sha256-hash-of-the-file",
+    "ranges": [
+      {
+        "content": "Lines 1-10 content",
+        "start": 1,
+        "end": 10,
+        "range_hash": "sha256-hash-of-this-range",
+        "total_lines": 50,
+        "content_size": 512
+      }
+    ]
+  }
 }
 ```
 
 #### patch_text_file_contents
 
-Apply patches to text files with robust error handling and conflict detection. Supports editing multiple files in a single operation.
+Apply one or more non-overlapping patches to one file. Read the target ranges
+first and pass both the current `file_hash` and each matching `range_hash`.
 
-**Request Format:**
+**Request:**
 
 ```json
 {
-  "files": [
+  "file_path": "/absolute/path/to/file.txt",
+  "file_hash": "sha256-hash-from-get-response",
+  "patches": [
     {
-      "file_path": "file1.txt",
-      "hash": "sha256-hash-from-get-contents",
-      "encoding": "utf-8",  // Optional, defaults to utf-8
-      "patches": [
-        {
-          "start": 5,
-          "end": 8,
-          "range_hash": "sha256-hash-of-content-being-replaced",
-          "contents": "New content for lines 5-8\n"
-        },
-        {
-          "start": 15,
-          "end": null,  // null means end of file
-          "range_hash": "sha256-hash-of-content-being-replaced",
-          "contents": "Content to append\n"
-        }
-      ]
+      "start": 5,
+      "end": 8,
+      "range_hash": "sha256-hash-of-lines-5-through-8",
+      "contents": "New content for lines 5-8\n"
     }
-  ]
+  ],
+  "encoding": "utf-8"
 }
 ```
 
-Important Notes:
-1. Always get the current hash and range_hash using get_text_file_contents before editing
-2. Patches are applied from bottom to top to handle line number shifts correctly
-3. Patches must not overlap within the same file
-4. Line numbers are 1-based
-5. `end: null` can be used to append content to the end of file
-6. File encoding must match the encoding used in get_text_file_contents
+Important notes:
 
-**Success Response:**
+1. Obtain current hashes with `get_text_file_contents` immediately before editing.
+2. Use `start` and `end`; `line_start` and `line_end` are not accepted.
+3. Patches are applied from bottom to top and must not overlap.
+4. Line numbers are 1-based.
+5. Use `append_text_file_contents`, `insert_text_file_contents`, or
+   `delete_text_file_contents` for those specialized operations.
+6. Use the same encoding for the read and patch calls.
+
+**Success response:**
 
 ```json
 {
-  "file1.txt": {
-    "result": "ok",
-    "hash": "sha256-hash-of-new-contents"
-  }
+  "result": "ok",
+  "file_hash": "sha256-hash-of-new-file-contents",
+  "reason": null,
+  "suggestion": null,
+  "hint": null
 }
 ```
 
-**Error Response with Hints:**
+**Error response:**
 
 ```json
 {
-  "file1.txt": {
-    "result": "error",
-    "reason": "Content hash mismatch",
-    "suggestion": "get",  // Suggests using get_text_file_contents
-    "hint": "Please run get_text_file_contents first to get current content and hashes"
-  }
+  "result": "error",
+  "reason": "Content range hash mismatch",
+  "suggestion": "get",
+  "hint": "Please run get_text_file_contents first to get current content and hashes"
 }
-```
-
-    "result": "error",
-    "reason": "Content hash mismatch - file was modified",
-    "hash": "current-hash",
-    "content": "Current file content"
-
-  }
-}
-
 ```
 
 ### Common Usage Pattern
 
-1. Get current content and hash:
+1. Call `get_text_file_contents` for the exact range to replace.
+2. Read `file_hash` and the range's `range_hash` from the keyed response.
+3. Call `patch_text_file_contents` with those hashes and the same range.
+4. If the result is an error, read the file again before retrying.
 
 ```python
+path = "/absolute/path/to/file.txt"
 contents = await get_text_file_contents({
-    "files": [
-        {
-            "file_path": "file.txt",
-            "ranges": [{"start": 1, "end": null}]  # Read entire file
-        }
-    ]
+    "files": [{
+        "file_path": path,
+        "ranges": [{"start": 5, "end": 8}]
+    }]
 })
-```
+file_info = contents[path]
+selected_range = file_info["ranges"][0]
 
-2. Edit file content:
-
-```python
-result = await edit_text_file_contents({
-    "files": [
-        {
-            "path": "file.txt",
-            "hash": contents["file.txt"][0]["hash"],
-            "encoding": "utf-8",  # Optional, defaults to "utf-8"
-            "patches": [
-                {
-                    "line_start": 5,
-                    "line_end": 8,
-                    "contents": "New content\n"
-                }
-            ]
-        }
-    ]
+result = await patch_text_file_contents({
+    "file_path": path,
+    "file_hash": file_info["file_hash"],
+    "patches": [{
+        "start": 5,
+        "end": 8,
+        "range_hash": selected_range["range_hash"],
+        "contents": "New content\n"
+    }]
 })
-```
-
-3. Handle conflicts:
-
-```python
-if result["file.txt"]["result"] == "error":
-    if "hash mismatch" in result["file.txt"]["reason"]:
-        # File was modified by another process
-        # Get new content and retry
-        pass
 ```
 
 ### Error Handling
