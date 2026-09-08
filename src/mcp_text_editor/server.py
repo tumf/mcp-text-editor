@@ -51,6 +51,8 @@ class GeminiCompatibleFastMCP(FastMCP):
 
 
 app = GeminiCompatibleFastMCP("mcp-text-editor")
+# FastMCP 1.25.0 does not expose a version constructor argument.
+app._mcp_server.version = __version__
 
 # Initialize handlers
 get_contents_handler = GetTextFileContentsHandler()
