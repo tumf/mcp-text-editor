@@ -254,6 +254,15 @@ class TextEditor:
         """
         self._validate_file_path(file_path)
         try:
+            # Reject unknown mapping fields before creating directories or touching files.
+            allowed_patch_fields = set(EditPatch.model_fields)
+            for raw_patch in patches:
+                if isinstance(raw_patch, dict):
+                    unknown_fields = set(raw_patch) - allowed_patch_fields
+                    if unknown_fields:
+                        unknown = ", ".join(sorted(unknown_fields))
+                        raise ValueError(f"Unknown patch field(s): {unknown}")
+
             if not os.path.exists(file_path):
                 if expected_file_hash not in ["", None]:  # Allow null hash
                     return self.create_error_response(
