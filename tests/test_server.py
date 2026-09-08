@@ -1,8 +1,8 @@
 """Tests for the MCP Text Editor Server."""
 
 import json
+import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -36,8 +36,11 @@ def test_console_script_handles_initialize_request():
         },
     }
 
+    executable = shutil.which("mcp-text-editor")
+    assert executable is not None
+
     result = subprocess.run(
-        [str(Path(sys.executable).with_name("mcp-text-editor"))],
+        [executable],
         input=json.dumps(request) + "\n",
         text=True,
         capture_output=True,
