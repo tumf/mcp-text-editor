@@ -6,7 +6,7 @@ authors = [
     { name = "tumf" }
 ]
 dependencies = [
-    "mcp>=1.25.0",
+    "mcp>=1.25.0,<2",
     "chardet>=5.2.0",
     "portalocker>=3.2.0",
 ]
