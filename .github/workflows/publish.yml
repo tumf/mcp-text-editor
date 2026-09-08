@@ -23,10 +23,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install uv
 
-      - name: Install dev/test dependencies
-        run: |
-          pip install -e ".[dev]"
-          pip install -e ".[test]"
+      - name: Install locked dependencies
+        run: uv sync --all-extras --frozen
 
       - name: Run tests
         run: |
