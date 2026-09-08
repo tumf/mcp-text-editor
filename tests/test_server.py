@@ -10,6 +10,7 @@ from mcp.server import stdio
 from mcp.types import TextContent
 from pytest_mock import MockerFixture
 
+from mcp_text_editor.schema_compat import make_schema_gemini_compatible
 from mcp_text_editor.server import (
     app,
     append_file_handler,
@@ -21,6 +22,15 @@ from mcp_text_editor.server import (
     patch_file_handler,
 )
 from mcp_text_editor.text_editor import TextEditor
+
+HANDLERS = (
+    get_contents_handler,
+    patch_file_handler,
+    create_file_handler,
+    append_file_handler,
+    delete_contents_handler,
+    insert_file_handler,
+)
 
 
 def test_console_script_handles_initialize_request():
@@ -58,6 +68,100 @@ def test_console_script_handles_initialize_request():
 @pytest.fixture
 def editor():
     return TextEditor()
+
+
+@pytest.mark.asyncio
+async def test_fastmcp_tools_match_handler_schemas():
+    tools = {tool.name: tool for tool in await app.list_tools()}
+
+    assert set(tools) == {handler.name for handler in HANDLERS}
+    for handler in HANDLERS:
+        expected = handler.get_tool_description()
+        actual = tools[handler.name]
+        assert actual.inputSchema == make_schema_gemini_compatible(expected.inputSchema)
+        assert actual.description == expected.description
+
+
+@pytest.mark.asyncio
+async def test_fastmcp_tools_accept_handler_arguments(tmp_path, editor):
+    def file_hash(path: Path) -> str:
+        return editor.calculate_hash(path.read_text())
+
+    read_file = tmp_path / "read.txt"
+    read_file.write_text("read\n")
+    patch_file = tmp_path / "patch.txt"
+    patch_file.write_text("old\n")
+    append_file = tmp_path / "append.txt"
+    append_file.write_text("first\n")
+    delete_file = tmp_path / "delete.txt"
+    delete_file.write_text("remove\n")
+    insert_file = tmp_path / "insert.txt"
+    insert_file.write_text("first\nsecond\n")
+    new_file = tmp_path / "new.txt"
+
+    calls = (
+        (
+            "get_text_file_contents",
+            {"files": [{"file_path": str(read_file), "ranges": [{"start": 1}]}]},
+        ),
+        (
+            "patch_text_file_contents",
+            {
+                "file_path": str(patch_file),
+                "file_hash": file_hash(patch_file),
+                "patches": [
+                    {
+                        "start": 1,
+                        "end": 1,
+                        "contents": "new\n",
+                        "range_hash": file_hash(patch_file),
+                    }
+                ],
+            },
+        ),
+        (
+            "create_text_file",
+            {"file_path": str(new_file), "contents": "created\n"},
+        ),
+        (
+            "append_text_file_contents",
+            {
+                "file_path": str(append_file),
+                "file_hash": file_hash(append_file),
+                "contents": "second\n",
+            },
+        ),
+        (
+            "delete_text_file_contents",
+            {
+                "file_path": str(delete_file),
+                "file_hash": file_hash(delete_file),
+                "ranges": [
+                    {"start": 1, "end": 1, "range_hash": file_hash(delete_file)}
+                ],
+            },
+        ),
+        (
+            "insert_text_file_contents",
+            {
+                "file_path": str(insert_file),
+                "file_hash": file_hash(insert_file),
+                "contents": "inserted\n",
+                "before": 2,
+            },
+        ),
+    )
+
+    for name, arguments in calls:
+        result = await app._tool_manager.call_tool(name, arguments)
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+
+    assert patch_file.read_text() == "new\n"
+    assert new_file.read_text() == "created\n"
+    assert append_file.read_text() == "first\nsecond\n"
+    assert delete_file.read_text() == ""
+    assert insert_file.read_text() == "first\ninserted\nsecond\n"
 
 
 @pytest.mark.asyncio
