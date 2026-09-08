@@ -1,5 +1,8 @@
 """Tests for the MCP Text Editor Server."""
 
+import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -18,6 +21,35 @@ from mcp_text_editor.server import (
     patch_file_handler,
 )
 from mcp_text_editor.text_editor import TextEditor
+
+
+def test_console_script_handles_initialize_request():
+    """Test the installed console script with a real MCP initialize request."""
+    request = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2025-06-18",
+            "capabilities": {},
+            "clientInfo": {"name": "pytest", "version": "1.0.0"},
+        },
+    }
+
+    result = subprocess.run(
+        [str(Path(sys.executable).with_name("mcp-text-editor"))],
+        input=json.dumps(request) + "\n",
+        text=True,
+        capture_output=True,
+        timeout=10,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    response = json.loads(result.stdout)
+    assert response["jsonrpc"] == "2.0"
+    assert response["id"] == 1
+    assert "result" in response
 
 
 @pytest.fixture
@@ -139,19 +171,17 @@ async def test_insert_text_file_contents(tmp_path, editor):
     assert Path(test_file).read_text().rstrip() == "before\ninserted\nafter"
 
 
-@pytest.mark.asyncio
-async def test_main_stdio_server_error(mocker: MockerFixture):
+def test_main_stdio_server_error(mocker: MockerFixture):
     """Test main function with stdio_server error."""
     mock_run = mocker.patch.object(app, "run")
     mock_run.side_effect = Exception("Stdio server error")
 
     with pytest.raises(Exception) as exc_info:
-        await main()
+        main()
     assert "Stdio server error" in str(exc_info.value)
 
 
-@pytest.mark.asyncio
-async def test_main_run_error(mocker: MockerFixture):
+def test_main_run_error(mocker: MockerFixture):
     """Test main function with app.run error."""
     mock_stdio = mocker.patch.object(stdio, "stdio_server")
     mock_context = mocker.MagicMock()
@@ -162,5 +192,5 @@ async def test_main_run_error(mocker: MockerFixture):
     mock_run.side_effect = Exception("App run error")
 
     with pytest.raises(Exception) as exc_info:
-        await main()
+        main()
     assert "App run error" in str(exc_info.value)
