@@ -308,7 +308,6 @@ class TextEditor:
                     )
                 else:
                     lines = current_file_content.splitlines(keepends=True)
-                    lines = current_file_content.splitlines(keepends=True)
 
             # Convert patches to EditPatch objects
             patch_objects = [EditPatch.model_validate(p) for p in patches]
