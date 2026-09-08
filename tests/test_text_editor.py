@@ -33,6 +33,21 @@ async def test_edit_file_with_edit_patch_object(editor, tmp_path):
     assert test_file.read_text() == "new line\nline2\nline3\n"
 
 
+@pytest.mark.asyncio
+async def test_invalid_patch_does_not_create_parent_directory(editor, tmp_path):
+    """Validate patches before creating a missing file's parent directory."""
+    target = tmp_path / "missing" / "file.txt"
+
+    result = await editor.edit_file_contents(
+        str(target),
+        "",
+        [{"line_start": 1, "contents": "unexpected\n", "range_hash": ""}],
+    )
+
+    assert result["result"] == "error"
+    assert not target.parent.exists()
+
+
 @pytest.fixture
 def test_file(tmp_path):
     """Create a temporary test file."""
@@ -333,7 +348,7 @@ async def test_empty_content_handling(editor, tmp_path):
         str(test_file),
         "",  # No hash for empty file
         [
-            {"line_start": 1, "contents": "New content\n", "range_hash": ""}
+            {"start": 1, "contents": "New content\n", "range_hash": ""}
         ],  # Empty range_hash for new files
     )
 
@@ -381,7 +396,7 @@ async def test_directory_creation_failure(editor, tmp_path):
     result = await editor.edit_file_contents(
         str(test_file),
         "",  # New file
-        [{"line_start": 1, "contents": "test content\n", "range_hash": None}],
+        [{"start": 1, "contents": "test content\n", "range_hash": None}],
     )
 
     assert result["result"] == "error"
@@ -402,7 +417,7 @@ async def test_invalid_encoding_file_operations(editor, tmp_path):
     result = await editor.edit_file_contents(
         str(test_file),
         "",  # hash doesn't matter as it will fail before hash check
-        [{"line_start": 1, "contents": "new content\n", "range_hash": None}],
+        [{"start": 1, "contents": "new content\n", "range_hash": None}],
         encoding="utf-8",
     )
 
@@ -617,7 +632,7 @@ async def test_create_file_directory_creation_failure(editor, tmp_path, monkeypa
         "",  # Empty hash for new file
         [
             {
-                "line_start": 1,
+                "start": 1,
                 "contents": "test content\n",
             }
         ],
@@ -646,7 +661,7 @@ async def test_io_error_handling(editor, tmp_path, monkeypatch):
     result = await editor.edit_file_contents(
         str(test_file),
         "",
-        [{"line_start": 1, "contents": "new content\n"}],
+        [{"start": 1, "contents": "new content\n"}],
     )
 
     assert result["result"] == "error"
@@ -667,7 +682,7 @@ async def test_exception_handling(editor, tmp_path, monkeypatch):
     result = await editor.edit_file_contents(
         str(test_file),
         "",
-        [{"line_start": 1, "contents": "new content\n"}],
+        [{"start": 1, "contents": "new content\n"}],
     )
 
     assert result["result"] == "error"
