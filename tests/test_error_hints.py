@@ -121,7 +121,8 @@ async def test_empty_content_delete_hint(editor, tmp_path):
         ],
     )
 
-    assert result["result"] == "ok"  # Note: It's "ok" but suggests using delete
+    assert result["result"] == "error"
+    assert "empty" in result["reason"].lower()
     assert result["suggestion"] == "delete"
     assert "delete_text_file_contents" in result["hint"]
 

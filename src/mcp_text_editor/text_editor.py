@@ -429,14 +429,13 @@ class TextEditor:
                 else:
                     contents = patch["contents"]
 
-                # Check if this is a deletion (empty content)
-                if not contents.strip():
-                    return {
-                        "result": "ok",
-                        "file_hash": current_file_hash,  # Return current hash since no changes made
-                        "hint": "For content deletion, please consider using delete_text_file_contents instead of patch with empty content",
-                        "suggestion": "delete",
-                    }
+                # Empty replacements are ambiguous; reject the entire atomic batch.
+                if contents == "":
+                    return self.create_error_response(
+                        "Empty patch contents are not supported",
+                        suggestion="delete",
+                        hint="Please use delete_text_file_contents to delete content",
+                    )
 
                 # Set suggestions for alternative tools
                 suggestion_text: Optional[str] = None
