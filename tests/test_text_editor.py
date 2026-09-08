@@ -864,6 +864,61 @@ async def test_edit_file_without_end(editor, tmp_path):
     assert test_file.read_text() == "new line\nline2\nline3\n"
 
 
+@pytest.mark.asyncio
+async def test_empty_patch_rejects_entire_batch(editor: TextEditor, tmp_path):
+    """Reject empty replacements without discarding batch changes as success."""
+    test_file = tmp_path / "test.txt"
+    original_content = "line1\nline2\nline3\n"
+    test_file.write_text(original_content)
+
+    result = await editor.edit_file_contents(
+        str(test_file),
+        editor.calculate_hash(original_content),
+        [
+            {
+                "start": 3,
+                "end": 3,
+                "contents": "updated\n",
+                "range_hash": editor.calculate_hash("line3\n"),
+            },
+            {
+                "start": 1,
+                "end": 1,
+                "contents": "",
+                "range_hash": editor.calculate_hash("line1\n"),
+            },
+        ],
+    )
+
+    assert result["result"] == "error"
+    assert "empty" in result["reason"].lower()
+    assert test_file.read_text() == original_content
+
+
+@pytest.mark.asyncio
+async def test_whitespace_patch_is_not_treated_as_empty(editor: TextEditor, tmp_path):
+    """Preserve intentional whitespace-only replacement content."""
+    test_file = tmp_path / "test.txt"
+    original_content = "line1\nline2\n"
+    test_file.write_text(original_content)
+
+    result = await editor.edit_file_contents(
+        str(test_file),
+        editor.calculate_hash(original_content),
+        [
+            {
+                "start": 1,
+                "end": 1,
+                "contents": "   ",
+                "range_hash": editor.calculate_hash("line1\n"),
+            }
+        ],
+    )
+
+    assert result["result"] == "ok"
+    assert test_file.read_text() == "   \nline2\n"
+
+
 def test_validate_environment():
     """Test environment validation."""
     # Currently _validate_environment is a placeholder
