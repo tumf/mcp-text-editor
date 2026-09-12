@@ -896,6 +896,23 @@ async def test_empty_patch_rejects_entire_batch(editor: TextEditor, tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_empty_patch_batch_is_rejected(editor: TextEditor, tmp_path):
+    """Reject a batch with no patches using an actionable error."""
+    test_file = tmp_path / "test.txt"
+    original_content = "line1\nline2\nline3\n"
+    test_file.write_text(original_content)
+
+    result = await editor.edit_file_contents(
+        str(test_file), editor.calculate_hash(original_content), []
+    )
+
+    assert result["result"] == "error"
+    assert result["reason"] == "Empty patch batch: no patches to apply"
+    assert result["suggestion"] == "get"
+    assert test_file.read_text() == original_content
+
+
+@pytest.mark.asyncio
 async def test_whitespace_patch_is_not_treated_as_empty(editor: TextEditor, tmp_path):
     """Preserve intentional whitespace-only replacement content."""
     test_file = tmp_path / "test.txt"
