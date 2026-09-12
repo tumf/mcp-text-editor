@@ -254,6 +254,22 @@ class TextEditor:
         """
         self._validate_file_path(file_path)
         try:
+            if not patches:
+                return self.create_error_response(
+                    "Empty patch batch: no patches to apply",
+                    suggestion="get",
+                    hint="Please provide at least one patch",
+                )
+
+            # Reject unknown mapping fields before creating directories or touching files.
+            allowed_patch_fields = set(EditPatch.model_fields)
+            for raw_patch in patches:
+                if isinstance(raw_patch, dict):
+                    unknown_fields = set(raw_patch) - allowed_patch_fields
+                    if unknown_fields:
+                        unknown = ", ".join(sorted(unknown_fields))
+                        raise ValueError(f"Unknown patch field(s): {unknown}")
+
             if not os.path.exists(file_path):
                 if expected_file_hash not in ["", None]:  # Allow null hash
                     return self.create_error_response(
@@ -307,7 +323,6 @@ class TextEditor:
                         hint=hint,
                     )
                 else:
-                    lines = current_file_content.splitlines(keepends=True)
                     lines = current_file_content.splitlines(keepends=True)
 
             # Convert patches to EditPatch objects
@@ -429,14 +444,13 @@ class TextEditor:
                 else:
                     contents = patch["contents"]
 
-                # Check if this is a deletion (empty content)
-                if not contents.strip():
-                    return {
-                        "result": "ok",
-                        "file_hash": current_file_hash,  # Return current hash since no changes made
-                        "hint": "For content deletion, please consider using delete_text_file_contents instead of patch with empty content",
-                        "suggestion": "delete",
-                    }
+                # Empty replacements are ambiguous; reject the entire atomic batch.
+                if contents == "":
+                    return self.create_error_response(
+                        "Empty patch contents are not supported",
+                        suggestion="delete",
+                        hint="Please use delete_text_file_contents to delete content",
+                    )
 
                 # Set suggestions for alternative tools
                 suggestion_text: Optional[str] = None

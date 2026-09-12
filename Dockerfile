@@ -36,4 +36,4 @@ COPY --from=uv --chown=app:app /app/src /app/src
 ENV PATH="/app/.venv/bin:$PATH"
 
 # Run mcp server
-ENTRYPOINT ["python", "src/mcp_text_editor/server.py"]
+ENTRYPOINT ["mcp-text-editor"]

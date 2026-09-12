@@ -88,9 +88,9 @@ async def test_patch_text_file_empty_content(tmp_path):
         [patch],
     )
 
-    # Verify that the operation suggests using delete_text_file_contents
-    assert result["result"] == "ok"
-    assert result["file_hash"] == file_hash
+    # Verify that the operation rejects the ambiguous no-op as an error
+    assert result["result"] == "error"
+    assert "empty" in result["reason"].lower()
     assert "delete_text_file_contents" in result["hint"]
     assert result["suggestion"] == "delete"
 

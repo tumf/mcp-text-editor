@@ -33,6 +33,21 @@ async def test_edit_file_with_edit_patch_object(editor, tmp_path):
     assert test_file.read_text() == "new line\nline2\nline3\n"
 
 
+@pytest.mark.asyncio
+async def test_invalid_patch_does_not_create_parent_directory(editor, tmp_path):
+    """Validate patches before creating a missing file's parent directory."""
+    target = tmp_path / "missing" / "file.txt"
+
+    result = await editor.edit_file_contents(
+        str(target),
+        "",
+        [{"line_start": 1, "contents": "unexpected\n", "range_hash": ""}],
+    )
+
+    assert result["result"] == "error"
+    assert not target.parent.exists()
+
+
 @pytest.fixture
 def test_file(tmp_path):
     """Create a temporary test file."""
@@ -333,7 +348,7 @@ async def test_empty_content_handling(editor, tmp_path):
         str(test_file),
         "",  # No hash for empty file
         [
-            {"line_start": 1, "contents": "New content\n", "range_hash": ""}
+            {"start": 1, "contents": "New content\n", "range_hash": ""}
         ],  # Empty range_hash for new files
     )
 
@@ -381,7 +396,7 @@ async def test_directory_creation_failure(editor, tmp_path):
     result = await editor.edit_file_contents(
         str(test_file),
         "",  # New file
-        [{"line_start": 1, "contents": "test content\n", "range_hash": None}],
+        [{"start": 1, "contents": "test content\n", "range_hash": None}],
     )
 
     assert result["result"] == "error"
@@ -402,7 +417,7 @@ async def test_invalid_encoding_file_operations(editor, tmp_path):
     result = await editor.edit_file_contents(
         str(test_file),
         "",  # hash doesn't matter as it will fail before hash check
-        [{"line_start": 1, "contents": "new content\n", "range_hash": None}],
+        [{"start": 1, "contents": "new content\n", "range_hash": None}],
         encoding="utf-8",
     )
 
@@ -617,7 +632,7 @@ async def test_create_file_directory_creation_failure(editor, tmp_path, monkeypa
         "",  # Empty hash for new file
         [
             {
-                "line_start": 1,
+                "start": 1,
                 "contents": "test content\n",
             }
         ],
@@ -646,7 +661,7 @@ async def test_io_error_handling(editor, tmp_path, monkeypatch):
     result = await editor.edit_file_contents(
         str(test_file),
         "",
-        [{"line_start": 1, "contents": "new content\n"}],
+        [{"start": 1, "contents": "new content\n"}],
     )
 
     assert result["result"] == "error"
@@ -667,7 +682,7 @@ async def test_exception_handling(editor, tmp_path, monkeypatch):
     result = await editor.edit_file_contents(
         str(test_file),
         "",
-        [{"line_start": 1, "contents": "new content\n"}],
+        [{"start": 1, "contents": "new content\n"}],
     )
 
     assert result["result"] == "error"
@@ -847,6 +862,78 @@ async def test_edit_file_without_end(editor, tmp_path):
 
     assert result["result"] == "ok"
     assert test_file.read_text() == "new line\nline2\nline3\n"
+
+
+@pytest.mark.asyncio
+async def test_empty_patch_rejects_entire_batch(editor: TextEditor, tmp_path):
+    """Reject empty replacements without discarding batch changes as success."""
+    test_file = tmp_path / "test.txt"
+    original_content = "line1\nline2\nline3\n"
+    test_file.write_text(original_content)
+
+    result = await editor.edit_file_contents(
+        str(test_file),
+        editor.calculate_hash(original_content),
+        [
+            {
+                "start": 3,
+                "end": 3,
+                "contents": "updated\n",
+                "range_hash": editor.calculate_hash("line3\n"),
+            },
+            {
+                "start": 1,
+                "end": 1,
+                "contents": "",
+                "range_hash": editor.calculate_hash("line1\n"),
+            },
+        ],
+    )
+
+    assert result["result"] == "error"
+    assert "empty" in result["reason"].lower()
+    assert test_file.read_text() == original_content
+
+
+@pytest.mark.asyncio
+async def test_empty_patch_batch_is_rejected(editor: TextEditor, tmp_path):
+    """Reject a batch with no patches using an actionable error."""
+    test_file = tmp_path / "test.txt"
+    original_content = "line1\nline2\nline3\n"
+    test_file.write_text(original_content)
+
+    result = await editor.edit_file_contents(
+        str(test_file), editor.calculate_hash(original_content), []
+    )
+
+    assert result["result"] == "error"
+    assert result["reason"] == "Empty patch batch: no patches to apply"
+    assert result["suggestion"] == "get"
+    assert test_file.read_text() == original_content
+
+
+@pytest.mark.asyncio
+async def test_whitespace_patch_is_not_treated_as_empty(editor: TextEditor, tmp_path):
+    """Preserve intentional whitespace-only replacement content."""
+    test_file = tmp_path / "test.txt"
+    original_content = "line1\nline2\n"
+    test_file.write_text(original_content)
+
+    result = await editor.edit_file_contents(
+        str(test_file),
+        editor.calculate_hash(original_content),
+        [
+            {
+                "start": 1,
+                "end": 1,
+                "contents": "   ",
+                "range_hash": editor.calculate_hash("line1\n"),
+            }
+        ],
+    )
+
+    assert result["result"] == "ok"
+    assert test_file.read_text() == "   \nline2\n"
 
 
 def test_validate_environment():

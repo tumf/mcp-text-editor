@@ -70,6 +70,17 @@ def test_edit_patch():
     assert patch.contents == "new content"
     assert patch.range_hash == "somehash"
 
+    # Reject stale field names instead of silently applying default whole-file range
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        EditPatch.model_validate(
+            {
+                "line_start": 5,
+                "line_end": 10,
+                "contents": "new content",
+                "range_hash": "somehash",
+            }
+        )
+
     # Test validation error - missing required field
     with pytest.raises(ValidationError):
         EditPatch()
