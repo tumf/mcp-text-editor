@@ -254,6 +254,13 @@ class TextEditor:
         """
         self._validate_file_path(file_path)
         try:
+            if not patches:
+                return self.create_error_response(
+                    "Empty patch batch: no patches to apply",
+                    suggestion="get",
+                    hint="Please provide at least one patch",
+                )
+
             # Reject unknown mapping fields before creating directories or touching files.
             allowed_patch_fields = set(EditPatch.model_fields)
             for raw_patch in patches:
